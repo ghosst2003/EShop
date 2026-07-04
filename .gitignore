@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.env
+
+# Node
+node_modules/
+dist/
+
+# Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Static builds
+backend/static/*
+!backend/static/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Pencil
+*.pen
