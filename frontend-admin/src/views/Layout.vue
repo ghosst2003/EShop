@@ -45,6 +45,18 @@
           <el-icon><Location /></el-icon>
           <span>发货地</span>
         </el-menu-item>
+        <el-menu-item index="/return-policy">
+          <el-icon><Document /></el-icon>
+          <span>退货政策</span>
+        </el-menu-item>
+        <el-menu-item index="/payment-methods">
+          <el-icon><CreditCard /></el-icon>
+          <span>支付方式</span>
+        </el-menu-item>
+        <el-menu-item index="/shipping-settings">
+          <el-icon><Setting /></el-icon>
+          <span>配送信息设置</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
@@ -71,7 +83,7 @@
 
 <script setup>
 import { useRouter, useRoute } from 'vue-router'
-import { Goods, Menu, Document, ArrowDown, ShoppingCart, Timer, Picture, Van, Location, Flag } from '@element-plus/icons-vue'
+import { Goods, Menu, Document, ArrowDown, ShoppingCart, Timer, Picture, Van, Location, Flag, CreditCard, Setting } from '@element-plus/icons-vue'
 import { useAuthStore } from '../store/auth'
 
 const router = useRouter()

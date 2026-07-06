@@ -115,4 +115,22 @@ export const updateOrder = (id, data) => api.put(`/admin/orders/${id}`, data)
 export const updateOrderStatus = (id, data) => api.post(`/admin/orders/${id}/status`, data)
 export const deleteOrder = (id) => api.delete(`/admin/orders/${id}`)
 
+// ---- Return Policies ----
+export const getGlobalReturnPolicy = () => api.get('/admin/shipping/return-policy')
+export const updateGlobalReturnPolicy = (data) => api.put('/admin/shipping/return-policy', data)
+export const getProductReturnPolicy = (productId) => api.get(`/admin/shipping/products/${productId}/return-policy`)
+export const setProductReturnPolicy = (productId, data) => api.post(`/admin/shipping/products/${productId}/return-policy`, data)
+export const deleteProductReturnPolicy = (productId) => api.delete(`/admin/shipping/products/${productId}/return-policy`)
+
+// ---- Payment Methods ----
+export const getPaymentMethods = () => api.get('/admin/payment-methods')
+export const createPaymentMethod = (data) => api.post('/admin/payment-methods', data)
+export const updatePaymentMethod = (id, data) => api.put(`/admin/payment-methods/${id}`, data)
+export const deletePaymentMethod = (id) => api.delete(`/admin/payment-methods/${id}`)
+export const reactivatePaymentMethod = (id) => api.post(`/admin/payment-methods/${id}/reactivate`)
+
+// ---- Global Shipping Settings ----
+export const getGlobalShippingSettings = () => api.get('/admin/shipping-settings')
+export const updateGlobalShippingSettings = (data) => api.put('/admin/shipping-settings', data)
+
 export default api

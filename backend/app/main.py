@@ -8,7 +8,7 @@ from app.routers import (
     auth,
     products_public,
     categories_public,
-    admin_products,
+    products,          # was admin_products
     admin_categories,
     admin_countries,
     admin_shipping_methods,
@@ -25,7 +25,11 @@ from app.routers import (
     buyer_orders,
     payment,
     addresses,
-    shipping,
+    shipping,         # now a package (was a flat module)
+    admin_return_policies,
+    admin_payment_methods,
+    admin_global_shipping_settings,
+    shipping_info,
 )
 
 app = FastAPI(title="ESHShop API", version="1.0.0")
@@ -43,7 +47,7 @@ app.add_middleware(
 app.include_router(buyer_auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(products_public.router, prefix="/api/products", tags=["Products - Public"])
 app.include_router(categories_public.router, prefix="/api/categories", tags=["Categories - Public"])
-app.include_router(admin_products.router, prefix="/api/admin/products", tags=["Products - Admin"])
+app.include_router(products.router, prefix="/api/admin/products", tags=["Products - Admin"])
 app.include_router(admin_categories.router, prefix="/api/admin/categories", tags=["Categories - Admin"])
 app.include_router(admin_countries.router, prefix="/api/admin/countries", tags=["Countries - Admin"])
 app.include_router(admin_shipping_methods.router, prefix="/api/admin/shipping-methods", tags=["Shipping Methods - Admin"])
@@ -60,6 +64,10 @@ app.include_router(buyer_orders.router, prefix="/api/orders", tags=["Orders - Bu
 app.include_router(payment.router, prefix="/api/payments", tags=["Payments"])
 app.include_router(addresses.router, prefix="/api/addresses", tags=["Addresses"])
 app.include_router(shipping.router, prefix="/api/shipping", tags=["Shipping - Public"])
+app.include_router(admin_return_policies.router, prefix="/api/admin/shipping", tags=["Return Policies - Admin"])
+app.include_router(admin_payment_methods.router, prefix="/api/admin/payment-methods", tags=["Payment Methods - Admin"])
+app.include_router(admin_global_shipping_settings.router, prefix="/api/admin/shipping-settings", tags=["Shipping Settings - Admin"])
+app.include_router(shipping_info.router, prefix="/api/shipping-info", tags=["Shipping Info - Public"])
 
 
 @app.get("/api/health", tags=["Health"])

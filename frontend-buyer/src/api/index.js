@@ -72,4 +72,9 @@ export const getActiveFlashDeals = () => api.get('/flash-deals/active')
 // ---- Banners ----
 export const getActiveBanners = () => api.get('/banners/active')
 
+// ---- Shipping Info (PDP section) ----
+export const getReturnPolicy = (productId) => api.get(`/shipping-info/return-policy/${productId}`)
+export const getPaymentMethods = () => api.get('/shipping-info/payment-methods')
+export const getShippingSettings = () => api.get('/shipping-info/shipping-settings')
+
 export default api

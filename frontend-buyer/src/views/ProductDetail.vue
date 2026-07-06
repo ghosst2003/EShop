@@ -57,13 +57,15 @@
             <span v-else class="text-red-600 font-medium">❌ Out of stock</span>
           </div>
 
-          <!-- Shipping Info (compact badges) -->
+          <!-- Shipping Info (eBay style) -->
           <ShippingInfo
+            :product-id="product.id"
             :product-slug="product.slug"
             :country-code="countryCode || 'DE'"
+            :origin-country-name="originCountryName"
           />
 
-          <!-- Shipping Info -->
+          <!-- Shipping Table (full options with country selector) -->
           <ShippingTable
             :product-slug="product.slug"
             :origin-country-code="product.origin_country_code"

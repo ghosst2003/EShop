@@ -21,6 +21,9 @@ const routes = [
       { path: 'banners', name: 'Banners', component: () => import('../views/BannersList.vue') },
       { path: 'shipping-methods', name: 'ShippingMethods', component: () => import('../views/ShippingMethods.vue') },
       { path: 'shipping-origins', name: 'ShippingOrigins', component: () => import('../views/ShippingOrigins.vue') },
+      { path: 'return-policy', name: 'ReturnPolicy', component: () => import('../views/ReturnPolicy.vue') },
+      { path: 'payment-methods', name: 'PaymentMethods', component: () => import('../views/PaymentMethods.vue') },
+      { path: 'shipping-settings', name: 'ShippingSettings', component: () => import('../views/ShippingSettings.vue') },
     ],
   },
 ]
