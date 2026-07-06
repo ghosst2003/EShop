@@ -9,21 +9,27 @@
       <!-- Shipping -->
       <div class="px-4 py-3">
         <div class="flex gap-3">
-          <span class="w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-right">Shipping:</span>
+          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Shipping:</span>
           <div class="flex-1 min-w-0">
-            <!-- Shipping cost - dynamic from backend -->
-            <div v-if="cheapestOption" class="text-sm font-semibold text-gray-900">
-              €{{ Number(cheapestOption.total_fee).toFixed(2) }}
-              <span class="font-normal text-gray-600 ml-1">{{ cheapestOption.shipping_method }}</span>
-              <button class="text-gray-400 hover:text-blue-600 ml-1 inline-flex items-center" title="More info">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-              </button>
+            <div class="flex items-center gap-2 text-sm">
+              <span class="text-gray-500"></span>
+              <span class="text-gray-500">Shipping to</span>
+              <strong class="text-gray-900">{{ selectedCountryName }}</strong>
+              <button @click="showCountrySelector = true" class="text-primary hover:underline text-sm">Change</button>
+              <span class="ml-2 font-semibold text-primary">€{{ shippingPrice }}</span>
             </div>
-            <div v-else class="text-sm text-gray-600">
-              Shipping calculated at checkout
-            </div>
+            <!-- Country selector (shown when Change is clicked) -->
+            <select
+              v-if="showCountrySelector"
+              v-model="shippingCountry"
+              @change="showCountrySelector = false; onCountryChange()"
+              class="w-full mt-2 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-orange-400 outline-none"
+            >
+              <option value="" disabled>Select destination</option>
+              <option v-for="c in countries" :key="c.code" :value="c.code">
+                {{ c.flag_emoji }} {{ c.name_en || c.name }}
+              </option>
+            </select>
 
             <!-- Shipping origin -->
             <div v-if="originCountryName" class="text-xs text-gray-400 mt-1">
@@ -44,7 +50,7 @@
       <!-- Import fees -->
       <div v-if="settings.show_import_fees" class="px-4 py-3">
         <div class="flex gap-3">
-          <span class="w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-right">Import fees:</span>
+          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Import fees:</span>
           <div class="flex-1 min-w-0">
             <span class="text-sm text-gray-600">{{ settings.import_fees_text }}</span>
             <button class="text-gray-400 hover:text-blue-600 ml-1 inline-flex items-center" title="More info">
@@ -59,7 +65,7 @@
       <!-- Delivery -->
       <div class="px-4 py-3">
         <div class="flex gap-3">
-          <span class="w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-right">Delivery:</span>
+          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Delivery:</span>
           <div class="flex-1 min-w-0">
             <span v-if="deliveryText" class="text-sm text-gray-600">{{ deliveryText }}</span>
             <span v-else class="text-sm text-gray-400">Estimated delivery will be shown at checkout</span>
@@ -75,7 +81,7 @@
       <!-- Returns -->
       <div class="px-4 py-3">
         <div class="flex gap-3">
-          <span class="w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-right">Returns:</span>
+          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Returns:</span>
           <div class="flex-1 min-w-0">
             <div class="text-sm text-gray-600 leading-relaxed">
               {{ returnsText }}
@@ -88,7 +94,7 @@
       <!-- Payments -->
       <div class="px-4 py-3">
         <div class="flex gap-3">
-          <span class="w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-right">Payments:</span>
+          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Payments:</span>
           <div class="flex-1 min-w-0">
             <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
               <!-- Payment icons from backend -->
@@ -110,7 +116,8 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { getShippingOptions, getShippingNotes, getReturnPolicy, getPaymentMethods, getShippingSettings } from '@/api'
+import { getShippingOptions, getShippingNotes, getReturnPolicy, getPaymentMethods, getShippingSettings, getCountries } from '@/api'
+import { useCountries } from '@/composables/useCountries'
 
 const props = defineProps({
   productSlug: String,
@@ -118,6 +125,8 @@ const props = defineProps({
   countryCode: String,
   originCountryName: String,
 })
+
+const { getCountryName } = useCountries()
 
 const shippingOptions = ref([])
 const shippingNotes = ref([])
@@ -132,19 +141,31 @@ const settings = ref({
 })
 const loading = ref(false)
 
+// Country selector
+const countries = ref([])
+const shippingCountry = ref('')
+const showCountrySelector = ref(false)
+
+const selectedCountryName = computed(() => {
+  const code = shippingCountry.value || props.countryCode
+  return getCountryName(code) || code || ''
+})
+
+const shippingPrice = computed(() => {
+  if (!shippingOptions.value.length) return '0.00'
+  const opt = shippingOptions.value[0] // sorted: default first, then by price
+  return Number(opt.total_fee).toFixed(2)
+})
+
 // ========================================
 // 动态数据（从后端加载）
 // ========================================
 
-const cheapestOption = computed(() => {
-  if (!shippingOptions.value.length) return null
-  return shippingOptions.value[0] // 已按 default-first, price 排序
-})
-
 const deliveryText = computed(() => {
-  if (!cheapestOption.value) return ''
-  const min = cheapestOption.value.estimated_days_min
-  const max = cheapestOption.value.estimated_days_max
+  if (!shippingOptions.value.length) return ''
+  const opt = shippingOptions.value[0]
+  const min = opt.estimated_days_min
+  const max = opt.estimated_days_max
   if (min && max) {
     return `Estimated between ${min}-${max} business days`
   }
@@ -175,12 +196,13 @@ const returnsText = computed(() => {
   return text
 })
 
-async function loadShippingData() {
-  if (!props.productSlug || !props.countryCode) return
+async function loadShippingData(country) {
+  const code = country || props.countryCode
+  if (!props.productSlug || !code) return
 
   loading.value = true
   try {
-    const { data } = await getShippingOptions(props.productSlug, props.countryCode)
+    const { data } = await getShippingOptions(props.productSlug, code)
     shippingOptions.value = data || []
   } catch {
     shippingOptions.value = []
@@ -193,6 +215,12 @@ async function loadShippingData() {
     shippingNotes.value = []
   }
   loading.value = false
+}
+
+function onCountryChange() {
+  if (shippingCountry.value) {
+    loadShippingData(shippingCountry.value)
+  }
 }
 
 async function loadReturnPolicy() {
@@ -229,12 +257,22 @@ async function loadShippingSettings() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // Load country list
+  try {
+    const { data } = await getCountries()
+    countries.value = data || []
+    shippingCountry.value = props.countryCode || ''
+  } catch {}
+
   loadShippingData()
   loadReturnPolicy()
   loadPaymentMethods()
   loadShippingSettings()
 })
-watch(() => [props.productSlug, props.countryCode], loadShippingData)
+watch(() => [props.productSlug, props.countryCode], () => {
+  shippingCountry.value = props.countryCode || ''
+  loadShippingData()
+})
 watch(() => props.productId, loadReturnPolicy, { immediate: true })
 </script>

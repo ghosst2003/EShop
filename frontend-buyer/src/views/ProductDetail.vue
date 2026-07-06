@@ -65,14 +65,6 @@
             :origin-country-name="originCountryName"
           />
 
-          <!-- Shipping Table (full options with country selector) -->
-          <ShippingTable
-            :product-slug="product.slug"
-            :origin-country-code="product.origin_country_code"
-            :origin-flag="originFlag"
-            :origin-country-name="originCountryName"
-          />
-
           <!-- CTA Buttons (moved to fixed bottom bar) -->
           <div class="h-14"></div>
 
@@ -152,7 +144,6 @@ import PriceBlock from '../components/pdp/PriceBlock.vue'
 import ProductTitle from '../components/pdp/ProductTitle.vue'
 import SkuSelector from '../components/pdp/SkuSelector.vue'
 import QuantitySelector from '../components/pdp/QuantitySelector.vue'
-import ShippingTable from '../components/pdp/ShippingTable.vue'
 import ShippingInfo from '../components/pdp/ShippingInfo.vue'
 import CtaButtons from '../components/pdp/CtaButtons.vue'
 import DetailTabs from '../components/pdp/DetailTabs.vue'
