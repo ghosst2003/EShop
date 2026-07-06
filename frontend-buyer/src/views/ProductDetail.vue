@@ -58,12 +58,14 @@
           </div>
 
           <!-- Shipping Info (eBay style) -->
-          <ShippingInfo
-            :product-id="product.id"
-            :product-slug="product.slug"
-            :country-code="countryCode || 'DE'"
-            :origin-country-name="originCountryName"
-          />
+          <div class="lg:-ml-4">
+            <ShippingInfo
+              :product-id="product.id"
+              :product-slug="product.slug"
+              :country-code="countryCode || 'DE'"
+              :origin-country-name="originCountryName"
+            />
+          </div>
 
           <!-- CTA Buttons (moved to fixed bottom bar) -->
           <div class="h-14"></div>

@@ -1,18 +1,17 @@
 <template>
-  <div class="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <div class="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden lg:pl-4">
     <!-- Title -->
-    <div class="px-4 pt-4 pb-3">
+    <div class="pr-4 pt-4 pb-3">
       <h3 class="text-base font-semibold text-gray-900">{{ settings.section_title || 'Shipping, returns, and payments' }}</h3>
     </div>
 
     <div class="divide-y divide-gray-200">
       <!-- Shipping -->
-      <div class="px-4 py-3">
-        <div class="flex gap-3">
+      <div class="pr-4 py-3">
+        <div class="flex items-start gap-3">
           <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Shipping:</span>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 text-sm">
-              <span class="text-gray-500"></span>
               <span class="text-gray-500">Shipping to</span>
               <strong class="text-gray-900">{{ selectedCountryName }}</strong>
               <button @click="showCountrySelector = true" class="text-primary hover:underline text-sm">Change</button>
@@ -48,12 +47,12 @@
       </div>
 
       <!-- Import fees -->
-      <div v-if="settings.show_import_fees" class="px-4 py-3">
-        <div class="flex gap-3">
+      <div v-if="settings.show_import_fees" class="pr-4 py-3">
+        <div class="flex items-center gap-3">
           <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Import fees:</span>
-          <div class="flex-1 min-w-0">
+          <div class="flex-1 min-w-0 flex items-center gap-2">
             <span class="text-sm text-gray-600">{{ settings.import_fees_text }}</span>
-            <button class="text-gray-400 hover:text-blue-600 ml-1 inline-flex items-center" title="More info">
+            <button class="text-gray-400 hover:text-blue-600 inline-flex items-center" title="More info">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
@@ -63,13 +62,13 @@
       </div>
 
       <!-- Delivery -->
-      <div class="px-4 py-3">
-        <div class="flex gap-3">
+      <div class="pr-4 py-3">
+        <div class="flex items-center gap-3">
           <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Delivery:</span>
-          <div class="flex-1 min-w-0">
+          <div class="flex-1 min-w-0 flex items-center gap-2">
             <span v-if="deliveryText" class="text-sm text-gray-600">{{ deliveryText }}</span>
             <span v-else class="text-sm text-gray-400">Estimated delivery will be shown at checkout</span>
-            <button v-if="deliveryText" class="text-gray-400 hover:text-blue-600 ml-1 inline-flex items-center" title="More info">
+            <button v-if="deliveryText" class="text-gray-400 hover:text-blue-600 inline-flex items-center" title="More info">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
@@ -79,24 +78,22 @@
       </div>
 
       <!-- Returns -->
-      <div class="px-4 py-3">
-        <div class="flex gap-3">
+      <div class="pr-4 py-3">
+        <div class="flex items-center gap-3">
           <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Returns:</span>
-          <div class="flex-1 min-w-0">
-            <div class="text-sm text-gray-600 leading-relaxed">
-              {{ returnsText }}
-              <button class="text-blue-600 hover:underline ml-1">See details</button>
-            </div>
+          <div class="flex-1 min-w-0 flex items-center gap-2">
+            <span class="text-sm text-gray-600">{{ returnsText }}</span>
+            <button class="text-blue-600 hover:underline text-sm">See details</button>
           </div>
         </div>
       </div>
 
       <!-- Payments -->
-      <div class="px-4 py-3">
-        <div class="flex gap-3">
+      <div class="pr-4 py-3">
+        <div class="flex items-center gap-3">
           <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Payments:</span>
-          <div class="flex-1 min-w-0">
-            <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
+          <div class="flex-1 min-w-0 flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-1.5">
               <!-- Payment icons from backend -->
               <span v-for="pay in paymentMethods" :key="pay.code"
                     class="inline-flex items-center justify-center h-7 px-2 border border-gray-200 rounded text-[11px] font-semibold"
