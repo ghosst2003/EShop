@@ -56,6 +56,9 @@ class ProductCreate(BaseModel):
     height_cm: Optional[float] = None
     shipping_category: str = "standard"
     origin_country_code: Optional[str] = None
+    pickup_enabled: bool = False
+    pickup_contact: Optional[str] = None
+    pickup_payment: Optional[str] = None
     shipping_rules: Optional[list["ShippingRuleCreate"]] = None
 
 
@@ -81,6 +84,9 @@ class ProductUpdate(BaseModel):
     height_cm: Optional[float] = None
     shipping_category: Optional[str] = None
     origin_country_code: Optional[str] = None
+    pickup_enabled: Optional[bool] = None
+    pickup_contact: Optional[str] = None
+    pickup_payment: Optional[str] = None
     shipping_rules: Optional[list["ShippingRuleCreate"]] = None
 
 
@@ -109,6 +115,9 @@ class ProductOut(BaseModel):
     height_cm: Optional[Decimal] = None
     shipping_category: Optional[str] = None
     origin_country_code: Optional[str] = None
+    pickup_enabled: bool = False
+    pickup_contact: Optional[str] = None
+    pickup_payment: Optional[str] = None
     created_by: int
     published_at: Optional[datetime] = None
     created_at: datetime

@@ -46,17 +46,20 @@
         </div>
       </div>
 
-      <!-- Import fees -->
-      <div v-if="settings.show_import_fees" class="pr-4 py-3">
-        <div class="flex items-center gap-3">
-          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Import fees:</span>
-          <div class="flex-1 min-w-0 flex items-center gap-2">
-            <span class="text-sm text-gray-600">{{ settings.import_fees_text }}</span>
-            <button class="text-gray-400 hover:text-blue-600 inline-flex items-center" title="More info">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-            </button>
+      <!-- Local Deal -->
+      <div v-if="showPickup" class="pr-4 py-3">
+        <div class="flex items-start gap-3">
+          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Local Deal:</span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 text-sm">
+              <span class="text-green-600 font-semibold"> Face-to-face available</span>
+            </div>
+            <div v-if="pickupContact" class="text-sm text-gray-700 mt-1">
+              <span class="text-gray-500">Contact:</span> {{ pickupContact }}
+            </div>
+            <div v-if="pickupPayment" class="text-sm text-gray-700 mt-0.5">
+              <span class="text-gray-500">Payment:</span> {{ pickupPayment }}
+            </div>
           </div>
         </div>
       </div>
@@ -77,13 +80,28 @@
         </div>
       </div>
 
+      <!-- Import fees -->
+      <div v-if="settings.show_import_fees" class="pr-4 py-3">
+        <div class="flex items-center gap-3">
+          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Import fees:</span>
+          <div class="flex-1 min-w-0 flex items-center gap-2">
+            <span class="text-sm text-gray-600">{{ settings.import_fees_text }}</span>
+            <button class="text-gray-400 hover:text-blue-600 inline-flex items-center" title="More info">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Returns -->
       <div class="pr-4 py-3">
-        <div class="flex items-center gap-3">
-          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Returns:</span>
-          <div class="flex-1 min-w-0 flex items-center gap-2">
-            <span class="text-sm text-gray-600">{{ returnsText }}</span>
-            <button class="text-blue-600 hover:underline text-sm">See details</button>
+        <div class="flex items-start gap-3">
+          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left pt-0.5">Returns:</span>
+          <div class="flex-1 min-w-0 text-sm">
+            <span class="text-gray-600">{{ returnsText }}</span>
+            <button class="text-blue-600 hover:underline text-sm ml-1 inline">See details</button>
           </div>
         </div>
       </div>
@@ -107,6 +125,7 @@
           </div>
         </div>
       </div>
+
     </div>
   </div>
 </template>
@@ -115,12 +134,20 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { getShippingOptions, getShippingNotes, getReturnPolicy, getPaymentMethods, getShippingSettings, getCountries } from '@/api'
 import { useCountries } from '@/composables/useCountries'
+import { useLocation } from '@/composables/useLocation'
+
+const { setLocation } = useLocation()
 
 const props = defineProps({
   productSlug: String,
   productId: Number,
   countryCode: String,
   originCountryName: String,
+  // Pickup / face-to-face deal
+  pickupEnabled: Boolean,
+  pickupContact: String,
+  pickupPayment: String,
+  countryPickupEnabled: Boolean, // 买家所在国家是否允许面对面交易
 })
 
 const { getCountryName } = useCountries()
@@ -146,6 +173,10 @@ const showCountrySelector = ref(false)
 const selectedCountryName = computed(() => {
   const code = shippingCountry.value || props.countryCode
   return getCountryName(code) || code || ''
+})
+
+const showPickup = computed(() => {
+  return props.pickupEnabled && props.countryPickupEnabled
 })
 
 const shippingPrice = computed(() => {
@@ -216,6 +247,7 @@ async function loadShippingData(country) {
 
 function onCountryChange() {
   if (shippingCountry.value) {
+    setLocation(shippingCountry.value)
     loadShippingData(shippingCountry.value)
   }
 }

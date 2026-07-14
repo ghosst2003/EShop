@@ -373,6 +373,7 @@ def list_active_countries(
             "name": c.name,
             "name_en": c.name_en,
             "flag_emoji": c.flag_emoji,
+            "pickup_enabled": bool(c.pickup_enabled),
         }
         for c in countries
     ]

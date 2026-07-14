@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import User, Country
-from app.schemas import CountryCreate, CountryOut
+from app.schemas import CountryCreate, CountryOut, CountryUpdate
 
 router = APIRouter()
 
@@ -38,7 +38,7 @@ def create_country(
 @router.put("/{country_id}", response_model=CountryOut)
 def update_country(
     country_id: int,
-    data: CountryCreate,
+    data: CountryUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):

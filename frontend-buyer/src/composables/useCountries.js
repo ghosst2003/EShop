@@ -43,11 +43,17 @@ export function useCountries() {
     return codeToFlagEmoji(code)
   }
 
+  const isPickupEnabled = (code) => {
+    const country = getCountryByCode(code)
+    return !!country?.pickup_enabled
+  }
+
   return {
     countriesCache,
     loadCountries,
     getCountryByCode,
     getCountryName,
     getFlagEmoji,
+    isPickupEnabled,
   }
 }

@@ -10,6 +10,7 @@ class CountryCreate(BaseModel):
     name_en: str
     flag_emoji: Optional[str] = None
     sort_order: int = 0
+    pickup_enabled: bool = False
 
 
 class CountryUpdate(BaseModel):
@@ -18,6 +19,7 @@ class CountryUpdate(BaseModel):
     flag_emoji: Optional[str] = None
     is_active: Optional[int] = None
     sort_order: Optional[int] = None
+    pickup_enabled: Optional[bool] = None
 
 
 class CountryOut(BaseModel):
@@ -27,6 +29,7 @@ class CountryOut(BaseModel):
     name_en: str
     flag_emoji: Optional[str] = None
     is_active: int
+    pickup_enabled: int
     sort_order: int
 
     model_config = {"from_attributes": True}

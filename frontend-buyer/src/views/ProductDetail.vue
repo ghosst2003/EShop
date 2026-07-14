@@ -64,6 +64,10 @@
               :product-slug="product.slug"
               :country-code="countryCode || 'DE'"
               :origin-country-name="originCountryName"
+              :pickup-enabled="product.pickup_enabled"
+              :pickup-contact="product.pickup_contact"
+              :pickup-payment="product.pickup_payment"
+              :country-pickup-enabled="countryPickupEnabled"
             />
           </div>
 
@@ -157,7 +161,7 @@ import RelatedProducts from '../components/pdp/RelatedProducts.vue'
 const route = useRoute()
 const router = useRouter()
 const { addToCart } = useCart()
-const { loadCountries, getFlagEmoji, getCountryName } = useCountries()
+const { loadCountries, getFlagEmoji, getCountryName, isPickupEnabled } = useCountries()
 const { countryCode } = useLocation()
 
 const product = ref(null)
@@ -166,6 +170,7 @@ const quantity = ref(1)
 
 const originFlag = computed(() => product.value?.origin_country_code ? getFlagEmoji(product.value.origin_country_code) : '')
 const originCountryName = computed(() => product.value?.origin_country_code ? getCountryName(product.value.origin_country_code) : '')
+const countryPickupEnabled = computed(() => countryCode.value ? isPickupEnabled(countryCode.value) : false)
 
 // SKU option groups — future-proof structure, currently defaults to single option
 const skuOptionGroups = ref([

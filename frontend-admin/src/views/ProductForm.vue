@@ -87,19 +87,36 @@
       <!-- 库存管理 -->
       <el-card class="form-card">
         <template #header>库存管理</template>
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="库存数量">
-              <el-input-number v-model="form.stock_quantity" :min="0" style="width: 100%" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="自动管理库存">
-              <el-switch v-model="form.auto_manage_stock" active-text="开启" inactive-text="关闭" />
-              <p style="color: #909399; font-size: 12px; margin-top: 4px">开启后，下单自动扣减库存</p>
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <div class="stock-row">
+          <label class="stock-label">库存数量</label>
+          <el-input-number v-model="form.stock_quantity" :min="0" class="stock-input" />
+          <label class="stock-label" style="margin-left: 32px">自动管理库存</label>
+          <el-switch v-model="form.auto_manage_stock" active-text="开启" inactive-text="关闭" />
+          <span class="stock-hint">开启后，下单自动扣减库存</span>
+        </div>
+      </el-card>
+
+      <!-- 面对面交易 -->
+      <el-card class="form-card">
+        <template #header>
+          <span>面对面交易</span>
+          <el-tooltip content="开启后，买家可在商品页面查看联系方式并线下完成交易" placement="top">
+            <el-icon style="margin-left: 6px; cursor: help"><QuestionFilled /></el-icon>
+          </el-tooltip>
+        </template>
+        <el-form-item label="允许面对面交易">
+          <el-switch v-model="form.pickup_enabled" active-text="开启" inactive-text="关闭" />
+        </el-form-item>
+        <template v-if="form.pickup_enabled">
+          <el-form-item label="联系方式">
+            <el-input v-model="form.pickup_contact" placeholder="如 WhatsApp: +49 123 456 789 / 电话 / 微信" maxlength="200" />
+            <span class="field-hint">买家将通过此联系方式与您取得联系</span>
+          </el-form-item>
+          <el-form-item label="支付方式说明">
+            <el-input v-model="form.pickup_payment" type="textarea" :rows="2" placeholder="如：接受现金、银行转账、PayPal 等" maxlength="500" />
+            <span class="field-hint">说明您接受的线下支付方式</span>
+          </el-form-item>
+        </template>
       </el-card>
 
       <!-- 重量与尺寸 -->
@@ -432,6 +449,9 @@ const form = reactive({
   height_cm: null,
   shipping_category: 'standard',
   origin_country_code: null,
+  pickup_enabled: false,
+  pickup_contact: '',
+  pickup_payment: '',
 })
 
 const categories = ref([])
@@ -543,6 +563,9 @@ onMounted(async () => {
         height_cm: data.height_cm ? Number(data.height_cm) : null,
         shipping_category: data.shipping_category || 'standard',
         origin_country_code: data.origin_country_code || null,
+        pickup_enabled: data.pickup_enabled ?? false,
+        pickup_contact: data.pickup_contact || '',
+        pickup_payment: data.pickup_payment || '',
       })
       existingImages.value = data.images || []
       if (data.tags?.length) tagsInput.value = data.tags.join(', ')
@@ -681,6 +704,9 @@ const handleSave = async () => {
       height_cm: form.height_cm,
       shipping_category: form.shipping_category,
       origin_country_code: form.origin_country_code,
+      pickup_enabled: form.pickup_enabled,
+      pickup_contact: form.pickup_contact,
+      pickup_payment: form.pickup_payment,
       tags: form.tags,
     }
 
@@ -751,5 +777,35 @@ const handleSave = async () => {
 }
 .fixed-width-row :deep(.el-form-item__label) {
   white-space: nowrap;
+}
+
+/* 库存管理：所有控件一行排列 */
+.stock-row {
+  display: flex;
+  align-items: center;
+}
+.stock-label {
+  font-size: 14px;
+  color: #606266;
+  line-height: 32px;
+  white-space: nowrap;
+}
+.stock-input {
+  width: 300px;
+}
+.stock-input :deep(.el-input-number) {
+  width: 100%;
+}
+.stock-hint {
+  color: #909399;
+  font-size: 12px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+.field-hint {
+  color: #909399;
+  font-size: 12px;
+  margin-top: 4px;
+  display: block;
 }
 </style>

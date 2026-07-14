@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 
-const STORAGE_KEY = 'esh_location'
+const STORAGE_KEY = 'esh_delivery_country'
+const OLD_STORAGE_KEY = 'delivery_country'
 const CACHE_TTL = 24 * 60 * 60 * 1000 // 24 小时
 
 const countryCode = ref(null)
@@ -8,9 +9,10 @@ const loading = ref(false)
 const error = ref(null)
 
 /**
- * 尝试从缓存读取
+ * 尝试从缓存读取（兼容旧 key）
  */
 function getCachedLocation() {
+  // 优先读新 key
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
@@ -19,6 +21,17 @@ function getCachedLocation() {
       return code
     }
     localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // ignore
+  }
+  // 兼容旧 key（Navbar 之前用的）
+  try {
+    const oldCode = localStorage.getItem(OLD_STORAGE_KEY)
+    if (oldCode) {
+      cacheLocation(oldCode)
+      localStorage.removeItem(OLD_STORAGE_KEY)
+      return oldCode
+    }
   } catch {
     // ignore
   }

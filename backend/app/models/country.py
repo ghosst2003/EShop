@@ -13,5 +13,6 @@ class Country(Base):
     name_en = Column(String(100), nullable=False)  # 英文名
     flag_emoji = Column(String(10))  # 国旗 emoji
     is_active = Column(Integer, default=1, nullable=False)
+    pickup_enabled = Column(Integer, default=0, nullable=False)  # 是否允许面对面交易
     sort_order = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)

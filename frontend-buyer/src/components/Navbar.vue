@@ -195,27 +195,29 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { useCart } from '../composables/useCart'
 import { useCountries } from '../composables/useCountries'
+import { useLocation } from '../composables/useLocation'
 
 const router = useRouter()
 const searchQuery = ref('')
 const showMobileSearch = ref(false)
 const showUserMenu = ref(false)
 
-// Delivery address
+// Delivery address — shared state via useLocation
 const { loadCountries, getCountryByCode } = useCountries()
+const { countryCode, setLocation, initLocation } = useLocation()
 const deliveryCountries = ref([])
-const selectedDeliveryCountry = ref(null)
 const showDeliveryDropdown = ref(false)
+
+const selectedDeliveryCountry = computed(() => {
+  return countryCode.value ? getCountryByCode(countryCode.value) : null
+})
 
 const deliveryCountryName = computed(() => {
   return selectedDeliveryCountry.value?.name_en || 'Country'
 })
 
-const STORAGE_KEY = 'delivery_country'
-
 const selectDeliveryCountry = (country) => {
-  selectedDeliveryCountry.value = country
-  localStorage.setItem(STORAGE_KEY, country.code)
+  setLocation(country.code)
   showDeliveryDropdown.value = false
 }
 
@@ -229,18 +231,8 @@ onMounted(async () => {
   const loaded = await loadCountries()
   deliveryCountries.value = loaded || []
 
-  const savedCode = localStorage.getItem(STORAGE_KEY)
-  if (savedCode) {
-    const saved = getCountryByCode(savedCode)
-    if (saved) {
-      selectedDeliveryCountry.value = saved
-      return
-    }
-  }
-  const defaultCountry = getCountryByCode('CY') || (deliveryCountries.value[0] || null)
-  if (defaultCountry) {
-    selectedDeliveryCountry.value = defaultCountry
-  }
+  // Initialize location (uses cached value or detects via GeoIP)
+  await initLocation()
 
   document.addEventListener('click', handleDeliveryClickOutside)
 })

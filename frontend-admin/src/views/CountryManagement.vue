@@ -26,6 +26,16 @@
           </el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="面对面交易" width="120" align="center">
+        <template #default="{ row }">
+          <el-switch
+            v-model="row.pickup_enabled"
+            @change="handlePickupToggle(row)"
+            :loading="row.savingPickup"
+            size="small"
+          />
+        </template>
+      </el-table-column>
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
           <el-button size="small" @click="showEditDialog(row)">编辑</el-button>
@@ -56,6 +66,10 @@
         <el-form-item label="排序">
           <el-input-number v-model="dialogForm.sort_order" :min="0" :max="999" />
         </el-form-item>
+        <el-form-item label="面对面交易">
+          <el-switch v-model="dialogForm.pickup_enabled" />
+          <span class="text-xs text-gray-400 ml-2">开启后，该国家的商品可以启用面对面交易</span>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -82,6 +96,7 @@ const dialogForm = ref({
   name_en: '',
   flag_emoji: '',
   sort_order: 0,
+  pickup_enabled: false,
 })
 const editingId = ref(null)
 const dialogTitle = computed(() => isEdit.value ? '编辑国家' : '添加国家')
@@ -101,7 +116,7 @@ const fetchCountries = async () => {
 const showAddDialog = () => {
   isEdit.value = false
   editingId.value = null
-  dialogForm.value = { code: '', name: '', name_en: '', flag_emoji: '', sort_order: 0 }
+  dialogForm.value = { code: '', name: '', name_en: '', flag_emoji: '', sort_order: 0, pickup_enabled: false }
   dialogVisible.value = true
 }
 
@@ -114,8 +129,22 @@ const showEditDialog = (row) => {
     name_en: row.name_en,
     flag_emoji: row.flag_emoji || '',
     sort_order: row.sort_order || 0,
+    pickup_enabled: !!row.pickup_enabled,
   }
   dialogVisible.value = true
+}
+
+const handlePickupToggle = async (row) => {
+  row.savingPickup = true
+  try {
+    await updateCountry(row.id, { pickup_enabled: row.pickup_enabled })
+    ElMessage.success('已更新')
+  } catch (e) {
+    ElMessage.error('更新失败')
+    row.pickup_enabled = !row.pickup_enabled
+  } finally {
+    row.savingPickup = false
+  }
 }
 
 const handleSave = async () => {
