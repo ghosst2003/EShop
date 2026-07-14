@@ -12,15 +12,15 @@
         <span class="text-gray-600 truncate">{{ product.title_en }}</span>
       </nav>
 
-      <!-- Main Content: 5:7 split on desktop, stacked on mobile -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
-        <!-- Left: Image Gallery (5 cols) -->
-        <div class="lg:col-span-5">
+      <!-- Main Content: equal width columns on desktop -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
+        <!-- Left: Image Gallery -->
+        <div>
           <ImageGallery :images="product.images" :product-name="product.title_en" />
         </div>
 
-        <!-- Right: Product Info (7 cols) - sticky on desktop -->
-        <div class="lg:col-span-7 lg:sticky lg:top-6 lg:h-fit lg:-mr-4">
+        <!-- Right: Product Info - sticky on desktop -->
+        <div class="lg:sticky lg:top-6 lg:h-fit lg:-mr-4">
           <!-- Price -->
           <PriceBlock
             :sale-price="product.sale_price"
@@ -78,7 +78,7 @@
       </div>
 
       <!-- Detail Tabs -->
-      <div class="mt-12 lg:mt-16">
+      <div class="mt-1 lg:mt-2">
         <DetailTabs>
           <template #description>
             <DescriptionPanel :html="product.description_en || product.description" />
@@ -102,8 +102,8 @@
     <!-- Fixed Bottom Action Bar -->
     <div class="fixed bottom-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 pb-2 safe-bottom">
       <div class="max-w-7xl mx-auto">
-        <div class="hidden lg:grid lg:grid-cols-12">
-          <div class="lg:col-start-6 lg:col-span-7">
+        <div class="hidden lg:grid lg:grid-cols-2">
+          <div class="col-start-2">
             <CtaButtons
               :disabled="product.stock_quantity === 0"
               @add-to-cart="handleAddToCart"
