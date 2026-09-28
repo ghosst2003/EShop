@@ -1,15 +1,15 @@
 <template>
-  <div class="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden lg:pl-4">
+  <div class="mb-4 bg-white rounded-xl border border-gray-200 overflow-hidden lg:pl-4 px-4 sm:px-0">
     <!-- Title -->
-    <div class="pr-4 pt-4 pb-3">
+    <div class="pr-4 pt-4 pb-3 lg:pr-0 lg:pt-4 lg:pb-3">
       <h3 class="text-base font-semibold text-gray-900">{{ settings.section_title || 'Shipping, returns, and payments' }}</h3>
     </div>
 
     <div class="divide-y divide-gray-200">
       <!-- Shipping -->
-      <div class="pr-4 py-3">
+      <div class="pr-4 py-2.5 lg:pr-0">
         <div class="flex items-start gap-3">
-          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Shipping:</span>
+          <span class="min-w-[80px] md:min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Shipping:</span>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 text-sm">
               <span class="text-gray-500">Shipping to</span>
@@ -47,9 +47,9 @@
       </div>
 
       <!-- Local Deal -->
-      <div v-if="showPickup" class="pr-4 py-3">
+      <div v-if="showPickup" class="pr-4 py-2.5 lg:pr-0">
         <div class="flex items-start gap-3">
-          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Local Deal:</span>
+          <span class="min-w-[80px] md:min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Local Deal:</span>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 text-sm">
               <span class="text-green-600 font-semibold"> Face-to-face available</span>
@@ -65,9 +65,9 @@
       </div>
 
       <!-- Delivery -->
-      <div class="pr-4 py-3">
+      <div class="pr-4 py-2.5 lg:pr-0">
         <div class="flex items-center gap-3">
-          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Delivery:</span>
+          <span class="min-w-[80px] md:min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Delivery:</span>
           <div class="flex-1 min-w-0 flex items-center gap-2">
             <span v-if="deliveryText" class="text-sm text-gray-600">{{ deliveryText }}</span>
             <span v-else class="text-sm text-gray-400">Estimated delivery will be shown at checkout</span>
@@ -81,9 +81,9 @@
       </div>
 
       <!-- Import fees -->
-      <div v-if="settings.show_import_fees" class="pr-4 py-3">
+      <div v-if="settings.show_import_fees" class="pr-4 py-2.5 lg:pr-0">
         <div class="flex items-center gap-3">
-          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Import fees:</span>
+          <span class="min-w-[80px] md:min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Import fees:</span>
           <div class="flex-1 min-w-0 flex items-center gap-2">
             <span class="text-sm text-gray-600">{{ settings.import_fees_text }}</span>
             <button class="text-gray-400 hover:text-blue-600 inline-flex items-center" title="More info">
@@ -96,9 +96,9 @@
       </div>
 
       <!-- Returns -->
-      <div class="pr-4 py-3">
+      <div class="pr-4 py-2.5 lg:pr-0">
         <div class="flex items-start gap-3">
-          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left pt-0.5">Returns:</span>
+          <span class="min-w-[80px] md:min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left pt-0.5">Returns:</span>
           <div class="flex-1 min-w-0 text-sm">
             <span class="text-gray-600">{{ returnsText }}</span>
             <button class="text-blue-600 hover:underline text-sm ml-1 inline">See details</button>
@@ -107,9 +107,9 @@
       </div>
 
       <!-- Payments -->
-      <div class="pr-4 py-3">
+      <div class="pr-4 py-2.5 lg:pr-0">
         <div class="flex items-center gap-3">
-          <span class="min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Payments:</span>
+          <span class="min-w-[80px] md:min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Payments:</span>
           <div class="flex-1 min-w-0 flex items-center gap-2">
             <div class="flex flex-wrap items-center gap-1.5">
               <!-- Payment icons from backend -->

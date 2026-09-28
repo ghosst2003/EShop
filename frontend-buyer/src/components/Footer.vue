@@ -1,6 +1,6 @@
 <template>
   <footer class="bg-[#1B1B1B] text-white">
-    <div class="max-w-[1440px] mx-auto px-10 py-12">
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-10 py-12">
       <div class="grid grid-cols-2 md:grid-cols-3 gap-8">
         <!-- Shopping -->
         <div>

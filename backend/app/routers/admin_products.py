@@ -2,7 +2,7 @@ import uuid
 import logging
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func
 
 from app.database import get_db
@@ -51,10 +51,16 @@ def list_products(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    q = db.query(Product).options(joinedload(Product.images))
+    # 单独查询总数（不带 JOIN，更快）
+    count_q = db.query(func.count(Product.id))
+    if status:
+        count_q = count_q.filter(Product.status == status)
+    total = count_q.scalar()
+
+    # 用 selectinload 替代 joinedload，避免笛卡尔积
+    q = db.query(Product).options(selectinload(Product.images))
     if status:
         q = q.filter(Product.status == status)
-    total = q.count()
     items = q.order_by(Product.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return ProductListResponse(items=items, total=total, page=page, page_size=page_size)
 

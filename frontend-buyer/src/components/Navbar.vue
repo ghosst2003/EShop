@@ -2,7 +2,7 @@
   <div>
     <!-- Main Header -->
     <nav class="bg-primary sticky top-0 z-40">
-      <div class="max-w-[1440px] mx-auto px-10">
+      <div class="max-w-[1440px] mx-auto px-4 sm:px-10">
         <div class="grid grid-cols-[auto_1fr_auto] items-center h-[72px] gap-6">
           <!-- Logo + Nav (left) -->
           <div class="flex items-center gap-6">
@@ -39,8 +39,8 @@
             </div>
           </div>
 
-          <!-- Cart, Sign In, Sign Up (right) -->
-          <div class="flex items-center gap-3">
+          <!-- Desktop right actions (hidden on mobile) -->
+          <div class="hidden md:flex items-center gap-3">
             <!-- Delivery Address Pill -->
             <div class="relative" data-delivery-pill>
               <button
@@ -129,17 +129,24 @@
             </template>
           </div>
 
-          <!-- Mobile search & avatar -->
-          <div class="flex items-center gap-3 md:hidden col-span-3 justify-end">
-            <button class="text-white text-lg" @click="showMobileSearch = !showMobileSearch"></button>
-            <router-link to="/cart" class="relative text-white text-lg">
-
-              <span v-if="cartCount > 0" class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{{ cartCount }}</span>
+          <!-- Mobile nav row -->
+          <div class="flex md:hidden items-center justify-between mt-3">
+            <router-link to="/browse" class="text-white text-[14px] font-semibold hover:text-orange-200 transition">
+              Browse
             </router-link>
-            <router-link v-if="!isAuthenticated" to="/login" class="w-8 h-8 bg-white rounded-full flex items-center justify-center text-primary text-sm font-bold">G</router-link>
-            <div v-else class="w-8 h-8 bg-white rounded-full flex items-center justify-center text-primary text-sm font-bold">
-              {{ user?.display_name?.[0]?.toUpperCase() || '?' }}
-            </div>
+            <button class="text-white text-lg" @click="showMobileSearch = !showMobileSearch">🔍</button>
+            <router-link to="/cart" class="relative text-white text-[14px] font-semibold flex items-center gap-1">
+              <span>🛒</span>
+              <span class="text-[13px]">Cart</span>
+              <span v-if="cartCount > 0" class="bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{{ cartCount }}</span>
+            </router-link>
+            <router-link v-if="!isAuthenticated" to="/login" class="text-white text-[13px] font-semibold hover:text-orange-200 transition">
+              Sign In
+            </router-link>
+            <router-link v-else to="/profile" class="text-white text-[13px] hover:text-orange-200 transition flex items-center gap-1">
+              <span class="text-[14px]">👤</span>
+              {{ user?.display_name?.split(' ')[0] || 'Profile' }}
+            </router-link>
           </div>
         </div>
 
@@ -158,34 +165,6 @@
         </div>
       </div>
     </nav>
-
-    <!-- Mobile Bottom Tab Bar -->
-    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 flex justify-around py-2 safe-bottom">
-      <router-link to="/" class="flex flex-col items-center text-[10px] font-semibold text-primary">
-        <span class="text-[20px]">🏠</span>
-        Home
-      </router-link>
-      <router-link to="/browse" class="flex flex-col items-center text-[10px] text-gray-400">
-        <span class="text-[20px]">🔍</span>
-        Browse
-      </router-link>
-      <router-link to="/cart" class="flex flex-col items-center text-[10px] text-gray-400">
-        <span class="text-[20px]">🛒</span>
-        Cart
-      </router-link>
-      <router-link v-if="isAuthenticated" to="/my-orders" class="flex flex-col items-center text-[10px] text-gray-400">
-        <span class="text-[20px]">📦</span>
-        Orders
-      </router-link>
-      <router-link v-if="isAuthenticated" to="/profile" class="flex flex-col items-center text-[10px] text-gray-400">
-        <span class="text-[20px]"></span>
-        Profile
-      </router-link>
-      <router-link v-else to="/login" class="flex flex-col items-center text-[10px] text-gray-400">
-        <span class="text-[20px]">🔑</span>
-        Sign In
-      </router-link>
-    </div>
   </div>
 </template>
 
@@ -261,9 +240,3 @@ const handleLogout = () => {
   logout()
 }
 </script>
-
-<style scoped>
-.safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 8px);
-}
-</style>

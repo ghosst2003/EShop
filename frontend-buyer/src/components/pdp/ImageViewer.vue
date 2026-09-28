@@ -4,6 +4,9 @@
     @mouseenter="isZooming = true"
     @mousemove="handleMouseMove"
     @mouseleave="isZooming = false"
+    @touchstart="onTouchStart"
+    @touchmove="onTouchMove"
+    @touchend="onTouchEnd"
   >
     <Transition name="fade" mode="out-in">
       <img
@@ -32,7 +35,8 @@
       v-if="showArrows && hasPrev"
       @click="$emit('prev')"
       class="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/90 rounded-full flex items-center justify-center text-gray-600 shadow
-             opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-white"
+             transition-opacity duration-200 hover:bg-white
+             md:opacity-0 md:group-hover:opacity-100"
     >
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
     </button>
@@ -40,7 +44,8 @@
       v-if="showArrows && hasNext"
       @click="$emit('next')"
       class="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/90 rounded-full flex items-center justify-center text-gray-600 shadow
-             opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-white"
+             transition-opacity duration-200 hover:bg-white
+             md:opacity-0 md:group-hover:opacity-100"
     >
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
     </button>
@@ -69,13 +74,18 @@ const props = defineProps({
   zoomScale: { type: Number, default: 1.8 },
 })
 
-defineEmits(['prev', 'next'])
+const emit = defineEmits(['prev', 'next'])
 
 const isZooming = ref(false)
 const mouseX = ref(50)
 const mouseY = ref(50)
 const loaded = ref(false)
 const errored = ref(false)
+
+// Touch swipe
+const touchStartX = ref(0)
+const touchStartY = ref(0)
+const isSwiping = ref(false)
 
 const zoomStyle = computed(() => {
   if (!isZooming.value) return { transform: 'scale(1)', transformOrigin: 'center center' }
@@ -99,6 +109,40 @@ function onLoad() {
 function onError() {
   errored.value = true
   loaded.value = true
+}
+
+const SWIPE_THRESHOLD = 50
+
+function onTouchStart(e) {
+  touchStartX.value = e.touches[0].clientX
+  touchStartY.value = e.touches[0].clientY
+  isSwiping.value = true
+}
+
+function onTouchMove(e) {
+  if (!isSwiping.value) return
+  // Prevent page scroll during horizontal swipe
+  const dx = Math.abs(e.touches[0].clientX - touchStartX.value)
+  const dy = Math.abs(e.touches[0].clientY - touchStartY.value)
+  if (dx > dy && dx > 10) {
+    e.preventDefault()
+  }
+}
+
+function onTouchEnd(e) {
+  if (!isSwiping.value) return
+  isSwiping.value = false
+  const dx = e.changedTouches[0].clientX - touchStartX.value
+  const dy = e.changedTouches[0].clientY - touchStartY.value
+  // Only handle horizontal swipes
+  if (Math.abs(dx) < Math.abs(dy) || Math.abs(dx) < SWIPE_THRESHOLD) return
+  if (dx < 0) {
+    // Swipe left → next image
+    props.hasNext && emit('next')
+  } else {
+    // Swipe right → prev image
+    props.hasPrev && emit('prev')
+  }
 }
 </script>
 

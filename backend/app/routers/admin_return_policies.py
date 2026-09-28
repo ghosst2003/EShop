@@ -12,7 +12,6 @@ from app.schemas import (
     ProductReturnPolicyCreate,
     ProductReturnPolicyUpdate,
     ProductReturnPolicyOut,
-    ReturnPolicyResolved,
 )
 
 router = APIRouter()
@@ -120,40 +119,3 @@ def delete_product_return_policy(
     db.delete(policy)
     db.commit()
     return {"message": "Product return policy deleted"}
-
-
-# ============================================================
-# 解析后的退货政策（前端买家使用）
-# ============================================================
-
-@router.get("/resolve-return-policy/{product_id}", response_model=ReturnPolicyResolved)
-def resolve_return_policy(
-    product_id: int,
-    db: Session = Depends(get_db),
-):
-    """获取合并后的退货政策（商品覆盖优先，否则全局默认）"""
-    global_policy = db.query(GlobalReturnPolicy).filter(
-        GlobalReturnPolicy.is_active == 1
-    ).first()
-    if not global_policy:
-        global_policy = GlobalReturnPolicy()
-
-    product_policy = db.query(ProductReturnPolicy).filter(
-        ProductReturnPolicy.product_id == product_id
-    ).first()
-
-    def get_val(field: str, fallback):
-        if product_policy is None:
-            return getattr(global_policy, field, fallback)
-        val = getattr(product_policy, field, None)
-        if val is None:
-            return getattr(global_policy, field, fallback)
-        return val
-
-    return ReturnPolicyResolved(
-        return_days=get_val("return_days", 30),
-        buyer_pays_return_shipping=bool(get_val("buyer_pays_return_shipping", 1)),
-        restocking_fee_percent=float(get_val("restocking_fee_percent", 0)),
-        description=get_val("description", ""),
-        description_en=get_val("description_en", ""),
-    )

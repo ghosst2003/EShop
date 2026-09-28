@@ -5,7 +5,7 @@
       <button
         @click="decrement"
         :disabled="quantity <= 1"
-        class="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
+        class="w-11 h-11 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M20 12H4"/></svg>
       </button>
@@ -14,12 +14,12 @@
         v-model.number="quantity"
         min="1"
         :max="maxStock"
-        class="w-12 h-9 text-center text-sm border-x border-gray-200 focus:outline-none focus:ring-1 focus:ring-primary/30"
+        class="w-12 h-11 text-center text-sm border-x border-gray-200 focus:outline-none focus:ring-1 focus:ring-primary/30"
       />
       <button
         @click="increment"
         :disabled="quantity >= maxStock"
-        class="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
+        class="w-11 h-11 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
       </button>

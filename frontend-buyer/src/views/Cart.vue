@@ -1,10 +1,10 @@
 <template>
   <div>
     <Navbar />
-    <div class="max-w-4xl mx-auto px-4 py-8">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">Shopping Cart ({{ count }})</h1>
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+      <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Shopping Cart ({{ count }})</h1>
 
-      <div v-if="items.length === 0" class="bg-white rounded-2xl shadow p-12 text-center">
+      <div v-if="items.length === 0" class="bg-white rounded-2xl shadow p-8 sm:p-12 text-center">
         <div class="text-5xl mb-4">🛒</div>
         <p class="text-gray-500 mb-6">Your cart is empty</p>
         <router-link to="/browse" class="bg-primary text-white font-bold px-8 py-3 rounded-xl hover:bg-primary-light transition">
@@ -15,19 +15,31 @@
       <div v-else>
         <!-- Cart Items -->
         <div class="bg-white rounded-2xl shadow divide-y">
-          <div v-for="item in items" :key="item.id" class="flex items-center gap-6 p-6">
-            <div class="w-24 h-24 bg-[#EBEBF0] rounded-xl overflow-hidden shrink-0">
+          <div v-for="item in items" :key="item.id" class="relative flex items-start gap-3 sm:gap-6 p-3 sm:p-6">
+            <div class="w-16 h-16 sm:w-24 sm:h-24 bg-[#EBEBF0] rounded-xl overflow-hidden shrink-0">
               <img v-if="item.product?.images?.[0]" :src="item.product.images[0].thumbnail_url || item.product.images[0].image_url" class="w-full h-full object-cover" />
-              <div v-else class="w-full h-full flex items-center justify-center text-gray-400">📷</div>
+              <div v-else class="w-full h-full flex items-center justify-center text-gray-400"></div>
             </div>
 
             <div class="flex-1 min-w-0">
-              <h3 class="font-semibold text-gray-900 truncate">{{ item.product?.title_en || item.product?.title || 'Product' }}</h3>
-              <p class="text-gray-500 text-sm">{{ item.product?.brand || '' }}</p>
-              <p class="text-primary font-bold mt-1">€{{ item.product?.sale_price }}</p>
+              <h3 class="font-semibold text-gray-900 text-sm sm:text-base truncate">{{ item.product?.title_en || item.product?.title || 'Product' }}</h3>
+              <p class="text-gray-500 text-xs sm:text-sm mt-0.5">{{ item.product?.brand || '' }}</p>
+              <p class="text-primary font-bold mt-1 text-base sm:text-lg">€{{ item.product?.sale_price }}</p>
+              <!-- Qty + Total row (mobile) -->
+              <div class="flex items-center justify-between mt-2 sm:hidden">
+                <div class="flex items-center gap-1.5">
+                  <button @click="updateQty(getItemId(item), (item.quantity || 1) - 1)"
+                    class="w-11 h-11 rounded-lg border border-gray-200 flex items-center justify-center text-lg hover:bg-gray-50 active:bg-gray-100">−</button>
+                  <span class="w-8 text-center font-semibold text-base">{{ item.quantity || 1 }}</span>
+                  <button @click="updateQty(getItemId(item), (item.quantity || 1) + 1)"
+                    class="w-11 h-11 rounded-lg border border-gray-200 flex items-center justify-center text-lg hover:bg-gray-50 active:bg-gray-100">+</button>
+                </div>
+                <p class="font-bold text-base">€{{ getItemTotal(item) }}</p>
+              </div>
             </div>
 
-            <div class="flex items-center gap-2">
+            <!-- Desktop: Qty + Total + Delete (hidden on mobile) -->
+            <div class="hidden sm:flex items-center gap-2">
               <button @click="updateQty(getItemId(item), (item.quantity || 1) - 1)"
                 class="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-gray-100">−</button>
               <span class="w-10 text-center font-semibold">{{ item.quantity || 1 }}</span>
@@ -35,17 +47,22 @@
                 class="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-gray-100">+</button>
             </div>
 
-            <div class="text-right shrink-0 w-24">
+            <div class="hidden sm:block text-right shrink-0 w-24">
               <p class="font-bold">€{{ getItemTotal(item) }}</p>
             </div>
 
-            <button @click="removeCartItem(getItemId(item))" class="text-gray-400 hover:text-red-500 transition">✕</button>
+            <button @click="removeCartItem(getItemId(item))" class="hidden sm:block text-gray-400 hover:text-red-500 transition shrink-0">✕</button>
+
+            <!-- Mobile delete button (bottom-left of card) -->
+            <button @click="removeCartItem(getItemId(item))" class="sm:hidden absolute bottom-2 left-3 text-gray-300 active:text-red-500 text-xs">
+              🗑 Remove
+            </button>
           </div>
         </div>
 
         <!-- Shipping Estimate -->
-        <div class="mt-4 bg-white rounded-2xl shadow p-6">
-          <h3 class="font-semibold text-gray-900 mb-3">Shipping Estimate</h3>
+        <div class="mt-3 sm:mt-4 bg-white rounded-2xl shadow p-4 sm:p-6">
+          <h3 class="font-semibold text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">Shipping Estimate</h3>
 
           <div class="flex items-center justify-between mb-3">
             <span class="text-xs text-gray-400">
@@ -83,10 +100,10 @@
         </div>
 
         <!-- Cart Summary -->
-        <div class="mt-6 bg-white rounded-2xl shadow p-6">
+        <div class="mt-4 sm:mt-6 bg-white rounded-2xl shadow p-4 sm:p-6">
           <div class="flex justify-between items-center mb-2">
-            <span class="text-lg font-bold">Subtotal</span>
-            <span class="text-2xl font-black text-primary">€{{ total.toFixed(2) }}</span>
+            <span class="text-base sm:text-lg font-bold">Subtotal</span>
+            <span class="text-xl sm:text-2xl font-black text-primary">€{{ total.toFixed(2) }}</span>
           </div>
           <div v-if="shippingTotal > 0" class="flex justify-between items-center mb-4 text-sm text-gray-500">
             <span>+ Shipping</span>

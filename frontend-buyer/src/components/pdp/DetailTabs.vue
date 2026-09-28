@@ -7,7 +7,7 @@
           v-for="tab in tabDefs"
           :key="tab.key"
           @click="switchTab(tab.key)"
-          class="px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+          class="px-4 py-2.5 md:px-6 md:py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
           :class="activeTab === tab.key
             ? 'border-primary text-primary'
             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"

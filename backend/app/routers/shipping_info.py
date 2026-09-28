@@ -9,21 +9,6 @@ from app.schemas import ReturnPolicyResolved, PaymentMethodOut, GlobalShippingSe
 router = APIRouter()
 
 
-@router.get("/return-policy/global", response_model=ReturnPolicyResolved)
-def get_global_return_policy(db: Session = Depends(get_db)):
-    """获取全局退货政策（买家端）"""
-    policy = db.query(GlobalReturnPolicy).filter(GlobalReturnPolicy.is_active == 1).first()
-    if not policy:
-        policy = GlobalReturnPolicy()
-    return ReturnPolicyResolved(
-        return_days=policy.return_days,
-        buyer_pays_return_shipping=bool(policy.buyer_pays_return_shipping),
-        restocking_fee_percent=float(policy.restocking_fee_percent),
-        description=policy.description,
-        description_en=policy.description_en,
-    )
-
-
 @router.get("/return-policy/{product_id}", response_model=ReturnPolicyResolved)
 def get_product_return_policy(product_id: int, db: Session = Depends(get_db)):
     """获取商品退货政策（合并全局默认 + 商品覆盖）"""

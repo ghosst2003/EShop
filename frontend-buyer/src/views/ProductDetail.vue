@@ -4,7 +4,7 @@
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 pb-24">
       <!-- Breadcrumb -->
-      <nav class="text-sm text-gray-400 mb-6">
+      <nav class="hidden lg:block text-sm text-gray-400 mb-6">
         <router-link to="/" class="hover:text-primary transition">Home</router-link>
         <span class="mx-2">/</span>
         <router-link to="/browse" class="hover:text-primary transition">Browse</router-link>
@@ -12,14 +12,14 @@
         <span class="text-gray-600 truncate">{{ product.title_en }}</span>
       </nav>
 
-      <!-- Main Content: equal width columns on desktop -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
-        <!-- Left: Image Gallery -->
-        <div>
+      <!-- Main Content: equal width columns on desktop, Taobao-style stacked on mobile -->
+      <div class="lg:grid lg:grid-cols-2 lg:gap-8 lg:gap-10">
+        <!-- Left: Image Gallery — full width on mobile, left col on desktop -->
+        <div class="-mx-4 sm:-mx-0">
           <ImageGallery :images="product.images" :product-name="product.title_en" />
         </div>
 
-        <!-- Right: Product Info - sticky on desktop -->
+        <!-- Right: Product Info — card style on mobile, sticky on desktop -->
         <div class="lg:sticky lg:top-6 lg:h-fit lg:-mr-4">
           <!-- Price -->
           <PriceBlock
@@ -35,7 +35,7 @@
           />
 
           <!-- Condition Note -->
-          <div v-if="product.condition_note" class="mb-4 bg-orange-bg rounded-xl p-4">
+          <div v-if="product.condition_note" class="mb-3 bg-orange-bg rounded-xl p-3">
             <div class="text-sm font-medium text-gray-900 mb-1">Condition Details</div>
             <p class="text-gray-600 text-sm leading-relaxed">{{ product.condition_note }}</p>
           </div>
@@ -50,14 +50,14 @@
           />
 
           <!-- Stock Status -->
-          <div v-if="product.auto_manage_stock" class="mb-4 text-sm">
+          <div v-if="product.auto_manage_stock" class="mb-3 text-sm">
             <span v-if="product.stock_quantity > 0" class="text-green-600">
               ✅ {{ product.stock_quantity }} in stock
             </span>
             <span v-else class="text-red-600 font-medium">❌ Out of stock</span>
           </div>
 
-          <!-- Shipping Info (eBay style) -->
+          <!-- Shipping Info -->
           <div class="lg:-ml-4">
             <ShippingInfo
               :product-id="product.id"
