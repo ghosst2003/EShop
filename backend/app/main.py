@@ -1,7 +1,7 @@
 from pathlib import Path
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.routers import (
@@ -42,6 +42,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# User-Agent 检测：移动端自动跳转到手机端
+@app.middleware("http")
+async def mobile_redirect(request: Request, call_next):
+    # 如果带 ?desktop=1 参数，不跳转
+    if "desktop" in request.query_params:
+        return await call_next(request)
+
+    path = request.url.path
+    # 只处理根路径和买家端路径，排除管理端和 API
+    if path in ("/", "/index.html") or (path.startswith("/assets/") and not path.startswith("/admin")):
+        ua = request.headers.get("user-agent", "").lower()
+        mobile_agents = ["mobile", "android", "iphone", "ipad", "ipod", "blackberry", "windows phone"]
+        if any(agent in ua for agent in mobile_agents):
+            if path == "/" or path == "/index.html":
+                return RedirectResponse(url="/mobile/")
+            # /assets/... → /mobile/assets/...
+            if path.startswith("/assets/"):
+                return RedirectResponse(url=f"/mobile/{path}")
+    return await call_next(request)
 
 # 路由注册
 app.include_router(buyer_auth.router, prefix="/api/auth", tags=["Auth"])
@@ -106,11 +126,28 @@ if buyer_dir.exists():
     # SPA catch-all: 非 API、非静态资源请求都返回 index.html
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        # 排除 API 和 uploads 路径
-        if full_path.startswith("api/") or full_path.startswith("uploads/"):
+        # 排除 API、uploads 和 mobile 路径
+        if full_path.startswith("api/") or full_path.startswith("uploads/") or full_path.startswith("mobile/"):
             from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Not Found")
         index_file = buyer_dir / "index.html"
         if index_file.exists():
             return FileResponse(index_file)
         raise HTTPException(status_code=404, detail="Not Found")
+
+# 手机端前端静态文件
+mobile_dir = Path(__file__).parent.parent / "static" / "mobile"
+if mobile_dir.exists():
+    mobile_assets_dir = mobile_dir / "assets"
+    if mobile_assets_dir.exists():
+        app.mount("/mobile/assets", StaticFiles(directory=mobile_assets_dir), name="mobile-assets")
+
+    @app.get("/mobile/{full_path:path}")
+    async def serve_mobile_spa(full_path: str):
+        index_file = mobile_dir / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+        raise HTTPException(status_code=404, detail="Not Found")
+elif not buyer_dir.exists():
+    # 如果两个前端都没构建，只返回 API 健康状态
+    pass

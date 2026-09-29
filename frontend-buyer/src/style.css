@@ -34,13 +34,6 @@
   scrollbar-width: none;
 }
 
-/* Safe area for mobile bottom bar */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-  .safe-bottom {
-    padding-bottom: calc(8px + env(safe-area-inset-bottom));
-  }
-}
-
 /* Product description rich content */
 .product-description h1,
 .product-description h2,

@@ -105,7 +105,7 @@
     <!-- ===== CATEGORY SHORTCUTS ===== -->
     <section class="bg-white mt-3">
       <div class="max-w-[1440px] mx-auto px-10 py-5">
-        <div class="grid grid-cols-6 md:grid-cols-12 gap-3">
+        <div class="grid grid-cols-6 gap-3">
           <a
             v-for="(sc, i) in shortcuts"
             :key="sc.name"
@@ -137,7 +137,7 @@
           <router-link to="/browse" class="text-primary text-sm font-semibold hover:underline">View All Deals →</router-link>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <router-link
             v-for="item in flashDeals"
             :key="item.id"
@@ -179,8 +179,8 @@
           </div>
         </div>
 
-        <!-- Product Grid - 5 columns on desktop, 2 on mobile -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <!-- Product Grid - 4 to 5 columns on desktop -->
+        <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           <ProductCard v-for="p in products" :key="p.id" :product="p" />
         </div>
 

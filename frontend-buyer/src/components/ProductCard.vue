@@ -54,8 +54,7 @@
     <button
       v-if="product.status === 'active' && product.stock_quantity !== 0"
       @click.stop="addToCart(product)"
-      class="w-full bg-primary text-white text-xs font-bold py-2 hover:bg-primary-light transition
-             md:opacity-0 md:group-hover:opacity-100 shrink-0">
+      class="w-full bg-primary text-white text-xs font-bold py-2 hover:bg-primary-light transition shrink-0">
       🛒 Add to Cart
     </button>
     <div v-else class="w-full bg-gray-100 text-gray-400 text-xs font-bold py-2 text-center cursor-not-allowed shrink-0">

@@ -6,8 +6,8 @@
       <h1 class="text-2xl font-extrabold text-gray-900 mb-6">Browse Products</h1>
 
       <div class="flex flex-col lg:flex-row gap-8">
-        <!-- Filters Sidebar (Desktop) -->
-        <aside class="hidden lg:block w-64 shrink-0">
+        <!-- Filters Sidebar -->
+        <aside class="w-64 shrink-0">
           <div class="bg-white rounded-xl p-6 sticky top-24 space-y-6">
             <!-- Category -->
             <div>
@@ -64,53 +64,12 @@
           </div>
         </aside>
 
-        <!-- Mobile Filter Button -->
-        <div class="lg:hidden">
-          <button
-            @click="showMobileFilter = !showMobileFilter"
-            class="w-full bg-white rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 flex items-center justify-between"
-          >
-            <span>Filters & Sort</span>
-            <span>▼</span>
-          </button>
-          <div v-if="showMobileFilter" class="bg-white rounded-xl p-4 mt-2 space-y-4">
-            <!-- Mobile filters same as desktop -->
-            <div>
-              <h3 class="font-bold text-sm mb-2">Category</h3>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  v-for="cat in categories"
-                  :key="cat.id"
-                  @click="filters.category_id = cat.id; fetchProducts()"
-                  class="px-3 py-1 rounded-full text-xs"
-                  :class="filters.category_id === cat.id ? 'bg-primary text-white' : 'bg-orange-light text-gray-600'"
-                >
-                  {{ cat.name_en }}
-                </button>
-              </div>
-            </div>
-            <div>
-              <h3 class="font-bold text-sm mb-2">Sort</h3>
-              <select v-model="filters.sort" @change="fetchProducts" class="w-full border rounded-lg px-3 py-2 text-sm">
-                <option value="">Newest</option>
-                <option value="price_asc">Price ↑</option>
-                <option value="price_desc">Price ↓</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
         <!-- Product Grid -->
         <div class="flex-1">
           <p class="text-sm text-gray-500 mb-4">{{ total }} products found</p>
 
-          <!-- Desktop Grid -->
-          <div class="hidden sm:grid sm:grid-cols-2 xl:grid-cols-3 gap-6">
-            <ProductCard v-for="p in products" :key="p.id" :product="p" />
-          </div>
-
-          <!-- Mobile Single Column -->
-          <div class="sm:hidden grid grid-cols-2 gap-3">
+          <!-- Product Grid -->
+          <div class="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-6">
             <ProductCard v-for="p in products" :key="p.id" :product="p" />
           </div>
 
@@ -153,7 +112,6 @@ const categories = ref([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = 20
-const showMobileFilter = ref(false)
 
 const filters = reactive({
   category_id: null,

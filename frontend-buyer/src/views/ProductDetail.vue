@@ -4,7 +4,7 @@
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 pb-24">
       <!-- Breadcrumb -->
-      <nav class="hidden lg:block text-sm text-gray-400 mb-6">
+      <nav class="text-sm text-gray-400 mb-6">
         <router-link to="/" class="hover:text-primary transition">Home</router-link>
         <span class="mx-2">/</span>
         <router-link to="/browse" class="hover:text-primary transition">Browse</router-link>
@@ -102,7 +102,7 @@
     <!-- Fixed Bottom Action Bar -->
     <div class="fixed bottom-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 pb-2 safe-bottom">
       <div class="max-w-7xl mx-auto">
-        <div class="hidden lg:grid lg:grid-cols-2">
+        <div class="grid grid-cols-2">
           <div class="col-start-2">
             <CtaButtons
               :disabled="product.stock_quantity === 0"
@@ -110,13 +110,6 @@
               @buy-now="handleBuyNow"
             />
           </div>
-        </div>
-        <div class="lg:hidden">
-          <CtaButtons
-            :disabled="product.stock_quantity === 0"
-            @add-to-cart="handleAddToCart"
-            @buy-now="handleBuyNow"
-          />
         </div>
       </div>
     </div>

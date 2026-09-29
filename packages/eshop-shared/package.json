@@ -1,0 +1,20 @@
+{
+  "name": "@eshop/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./api": "./src/api/index.js",
+    "./composables/useAuth": "./src/composables/useAuth.js",
+    "./composables/useCart": "./src/composables/useCart.js",
+    "./composables/useCountries": "./src/composables/useCountries.js",
+    "./composables/useLocation": "./src/composables/useLocation.js",
+    "./composables/useImageGallery": "./src/composables/useImageGallery.js",
+    "./composables/useTabs": "./src/composables/useTabs.js"
+  },
+  "peerDependencies": {
+    "axios": "^1.7.9",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  }
+}

@@ -8,7 +8,7 @@
           <div class="flex items-center gap-6">
             <router-link to="/" class="flex items-center gap-2.5 shrink-0">
               <span class="w-[40px] h-[40px] bg-white rounded-lg flex items-center justify-center text-primary font-black text-[22px]">C</span>
-              <div class="hidden sm:block leading-tight">
+              <div class="leading-tight">
                 <span class="text-white font-extrabold text-[22px] block">BeCool Market</span>
                 <span class="text-orange-200 text-[11px]">Buy · Sell · Save</span>
               </div>
@@ -39,8 +39,8 @@
             </div>
           </div>
 
-          <!-- Desktop right actions (hidden on mobile) -->
-          <div class="hidden md:flex items-center gap-3">
+          <!-- Desktop right actions -->
+          <div class="flex items-center gap-3">
             <!-- Delivery Address Pill -->
             <div class="relative" data-delivery-pill>
               <button
@@ -128,40 +128,6 @@
               </router-link>
             </template>
           </div>
-
-          <!-- Mobile nav row -->
-          <div class="flex md:hidden items-center justify-between mt-3">
-            <router-link to="/browse" class="text-white text-[14px] font-semibold hover:text-orange-200 transition">
-              Browse
-            </router-link>
-            <button class="text-white text-lg" @click="showMobileSearch = !showMobileSearch">🔍</button>
-            <router-link to="/cart" class="relative text-white text-[14px] font-semibold flex items-center gap-1">
-              <span>🛒</span>
-              <span class="text-[13px]">Cart</span>
-              <span v-if="cartCount > 0" class="bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{{ cartCount }}</span>
-            </router-link>
-            <router-link v-if="!isAuthenticated" to="/login" class="text-white text-[13px] font-semibold hover:text-orange-200 transition">
-              Sign In
-            </router-link>
-            <router-link v-else to="/profile" class="text-white text-[13px] hover:text-orange-200 transition flex items-center gap-1">
-              <span class="text-[14px]">👤</span>
-              {{ user?.display_name?.split(' ')[0] || 'Profile' }}
-            </router-link>
-          </div>
-        </div>
-
-        <!-- Mobile Search -->
-        <div v-if="showMobileSearch" class="md:hidden pb-3">
-          <div class="bg-white rounded-full h-9 flex items-center pr-1">
-            <span class="pl-4 text-gray-400 mr-2"></span>
-            <input
-              v-model="searchQuery"
-              @keyup.enter="handleSearch"
-              type="text"
-              placeholder="Search products..."
-              class="bg-transparent outline-none text-sm text-gray-600 flex-1"
-            />
-          </div>
         </div>
       </div>
     </nav>
@@ -178,7 +144,6 @@ import { useLocation } from '../composables/useLocation'
 
 const router = useRouter()
 const searchQuery = ref('')
-const showMobileSearch = ref(false)
 const showUserMenu = ref(false)
 
 // Delivery address — shared state via useLocation
