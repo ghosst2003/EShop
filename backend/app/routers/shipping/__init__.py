@@ -281,6 +281,7 @@ def get_product_shipping_table(
 @router.get("/cart/shipping-estimate", response_model=CartShippingEstimate)
 def get_cart_shipping_estimate(
     country: str = Query(..., description="Destination country code"),
+    product_ids: Optional[str] = Query(None, description="Comma-separated selected product IDs"),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -300,7 +301,21 @@ def get_cart_shipping_estimate(
     shipping_total = Decimal("0")
     items_result = []
 
-    for ci in cart.items:
+    selected_ids = None
+    if product_ids:
+        try:
+            selected_ids = {int(value) for value in product_ids.split(",") if value.strip()}
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid product_ids") from exc
+
+    selected_items = [
+        item for item in cart.items
+        if selected_ids is None or item.product_id in selected_ids
+    ]
+    if not selected_items:
+        raise HTTPException(status_code=400, detail="No selected cart items found")
+
+    for ci in selected_items:
         product = ci.product
         if not product:
             continue

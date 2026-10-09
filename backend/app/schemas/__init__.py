@@ -7,6 +7,9 @@ from app.schemas.auth import (
     UserProfileUpdate,
     TokenResponse,
     UserOut,
+    PasswordResetRequest,
+    PasswordResetConfirm,
+    EmailVerificationConfirm,
 )
 
 from app.schemas.category import (
@@ -26,9 +29,12 @@ from app.schemas.product import (
     ShippingRuleCreate,
     ShippingRuleOut,
     ProductImageOut,
+    PublicProductImageOut,
     ProductCreate,
     ProductUpdate,
     ProductOut,
+    PublicProductOut,
+    SharedProductOut,
     ProductListResponse,
     ProductStatusUpdate,
 )
@@ -133,11 +139,19 @@ from app.schemas.shipping_settings import (
     GlobalShippingSettingsUpdate,
     GlobalShippingSettingsOut,
 )
+from app.schemas.commerce import (
+    SavedProductOut,
+    ReviewCreate,
+    ReviewOut,
+    ReviewsSummary,
+    ReturnRequestCreate,
+    ReturnRequestOut,
+)
 
 __all__ = [
     # auth
     "LoginRequest", "UserRegister", "UserProfileUpdate",
-    "TokenResponse", "UserOut",
+    "TokenResponse", "UserOut", "PasswordResetRequest", "PasswordResetConfirm",
     # category
     "CategoryCreate", "CategoryUpdate", "CategoryOut", "CategoryTree",
     # country
@@ -184,4 +198,7 @@ __all__ = [
     # shipping_settings
     "GlobalShippingSettingsCreate", "GlobalShippingSettingsUpdate",
     "GlobalShippingSettingsOut",
+    # commerce
+    "SavedProductOut", "ReviewCreate", "ReviewOut", "ReviewsSummary",
+    "ReturnRequestCreate", "ReturnRequestOut",
 ]

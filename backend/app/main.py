@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from app.config import settings
 
 from app.routers import (
     auth,
@@ -30,18 +31,38 @@ from app.routers import (
     admin_payment_methods,
     admin_global_shipping_settings,
     shipping_info,
+    admin_promo_items,
+    promo_items_public,
+    commerce,
 )
 
-app = FastAPI(title="ESHShop API", version="1.0.0")
+is_production = settings.environment.lower() == "production"
+app = FastAPI(
+    title="BeCool API",
+    version="1.0.0",
+    docs_url=None if is_production else "/docs",
+    redoc_url=None if is_production else "/redoc",
+    openapi_url=None if is_production else "/openapi.json",
+)
 
-# CORS — 开发阶段允许所有来源，生产环境应限制域名
+# CORS origins are explicit in every environment and configurable per deployment.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    return response
 
 # User-Agent 检测：移动端自动跳转到手机端
 @app.middleware("http")
@@ -88,6 +109,9 @@ app.include_router(admin_return_policies.router, prefix="/api/admin/shipping", t
 app.include_router(admin_payment_methods.router, prefix="/api/admin/payment-methods", tags=["Payment Methods - Admin"])
 app.include_router(admin_global_shipping_settings.router, prefix="/api/admin/shipping-settings", tags=["Shipping Settings - Admin"])
 app.include_router(shipping_info.router, prefix="/api/shipping-info", tags=["Shipping Info - Public"])
+app.include_router(admin_promo_items.router, prefix="/api/admin/promo-items", tags=["Promo Items - Admin"])
+app.include_router(promo_items_public.router, prefix="/api/promo-items", tags=["Promo Items - Public"])
+app.include_router(commerce.router, prefix="/api", tags=["Saved Products & Reviews"])
 
 
 @app.get("/api/health", tags=["Health"])

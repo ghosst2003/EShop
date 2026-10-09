@@ -27,9 +27,11 @@ class UserProfileUpdate(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    access_token: str
+    access_token: Optional[str] = None
     token_type: str = "bearer"
     user: Optional["UserOut"] = None
+    verification_required: bool = False
+    email_verification_token: Optional[str] = None
 
 
 class UserOut(BaseModel):
@@ -42,3 +44,16 @@ class UserOut(BaseModel):
     avatar: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class PasswordResetRequest(BaseModel):
+    account: str
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+
+class EmailVerificationConfirm(BaseModel):
+    token: str

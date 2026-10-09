@@ -1,77 +1,17 @@
 <template>
-  <div class="min-h-screen bg-[#F7F7F7]">
-    <div class="bg-white safe-top border-b border-gray-100">
-      <div class="flex items-center px-4 py-3">
-        <button @click="$router.back()" class="text-xl tap-active">←</button>
-        <h1 class="text-base font-bold flex-1 text-center mr-8">My Orders</h1>
-      </div>
-    </div>
-
-    <div v-if="orders.length === 0" class="flex flex-col items-center justify-center py-20 text-gray-400">
-      <span class="text-5xl mb-4">📦</span>
-      <p>No orders yet</p>
-      <router-link to="/browse" class="mt-4 text-primary font-semibold tap-active">Start Shopping →</router-link>
-    </div>
-
-    <div v-else class="px-4 py-4 space-y-3">
-      <router-link
-        v-for="order in orders"
-        :key="order.id"
-        :to="`/my-orders/${order.id}`"
-        class="block bg-white rounded-xl p-4 tap-active"
-      >
-        <div class="flex justify-between items-center mb-2">
-          <span class="text-sm font-bold">Order #{{ order.id }}</span>
-          <span :class="statusBadgeClass(order.status)" class="text-xs px-2 py-0.5 rounded-full">
-            {{ statusLabel(order.status) }}
-          </span>
-        </div>
-        <div class="flex gap-2 overflow-x-auto hide-scrollbar">
-          <div
-            v-for="item in order.items?.slice(0, 3)"
-            :key="item.id"
-            class="w-16 h-16 bg-[#EBEBF0] rounded-lg overflow-hidden shrink-0"
-          >
-            <img v-if="item.product?.images?.length" :src="item.product.images[0].thumbnail_url" class="w-full h-full object-cover" />
-          </div>
-        </div>
-        <div class="flex justify-between mt-2 text-sm">
-          <span class="text-gray-500">{{ order.items?.length || 0 }} item(s)</span>
-          <span class="font-bold text-primary">€{{ order.total_amount }}</span>
-        </div>
-      </router-link>
-    </div>
-  </div>
+  <main class="orders-page safe-top">
+    <header><button type="button" aria-label="Go back" @click="$router.back()">←</button><div><span>YOUR PURCHASES</span><h1>My orders</h1></div></header>
+    <div class="tabs" role="tablist" aria-label="Filter orders"><button v-for="tab in tabs" :key="tab.value" type="button" role="tab" :aria-selected="filter===tab.value" :class="{active:filter===tab.value}" @click="filter=tab.value">{{ tab.label }}</button></div>
+    <div v-if="loading" class="state-card" role="status">Loading your orders…</div><div v-else-if="error" class="state-card" role="alert"><h2>Orders are unavailable</h2><p>{{ error }}</p><button type="button" @click="load">Try again</button></div><div v-else-if="!filteredOrders.length" class="state-card"><span class="empty-mark">b.</span><h2>{{ orders.length?'No orders in this status':'No orders yet' }}</h2><p>{{ orders.length?'Choose another filter to see more.':'Your future finds will appear here.' }}</p><router-link v-if="!orders.length" to="/browse">Start shopping</router-link></div>
+    <section v-else class="order-list" aria-live="polite"><router-link v-for="order in filteredOrders" :key="order.id" :to="`/my-orders/${order.id}`" class="order-card"><div class="order-top"><div><span>{{ formatDate(order.created_at) }}</span><h2>{{ order.order_number }}</h2></div><em :class="`status-${order.status}`">{{ statusLabel(order.status) }}</em></div><div class="item-preview"><span v-for="item in order.items?.slice(0,3)" :key="item.id">{{ (item.product_title_en||item.product_title||'Item').slice(0,1) }}</span><p><strong>{{ order.items?.length||0 }} {{ order.items?.length===1?'piece':'pieces' }}</strong><small>{{ itemNames(order) }}</small></p></div><footer><span>{{ nextStep(order) }}</span><strong>€{{ money(order.total_amount) }} →</strong></footer></router-link></section>
+  </main>
 </template>
-
 <script setup>
-import { ref, onMounted } from 'vue'
-import { getMyOrders } from '../api'
-
-const orders = ref([])
-
-const statusLabel = (s) => ({
-  pending: 'Pending',
-  paid: 'Paid',
-  shipped: 'Shipped',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-}[s] || s)
-
-const statusBadgeClass = (s) => ({
-  pending: 'bg-yellow-100 text-yellow-700',
-  paid: 'bg-blue-100 text-blue-700',
-  shipped: 'bg-purple-100 text-purple-700',
-  delivered: 'bg-green-100 text-green-700',
-  cancelled: 'bg-red-100 text-red-700',
-}[s] || 'bg-gray-100 text-gray-700')
-
-onMounted(async () => {
-  try {
-    const { data } = await getMyOrders()
-    orders.value = data.items || []
-  } catch (e) {
-    console.error(e)
-  }
-})
+import {computed,onMounted,ref} from 'vue';import {getMyOrders} from '../api'
+const orders=ref([]),loading=ref(true),error=ref(''),filter=ref('all');const tabs=[{value:'all',label:'All'},{value:'pending',label:'To pay'},{value:'paid',label:'Processing'},{value:'shipped',label:'On the way'},{value:'completed',label:'Complete'}]
+const filteredOrders=computed(()=>filter.value==='all'?orders.value:orders.value.filter(o=>o.status===filter.value));const statusLabel=s=>({pending:'Payment due',paid:'Preparing',shipped:'On the way',completed:'Delivered',cancelled:'Cancelled',refunded:'Refunded'}[s]||s);const nextStep=o=>({pending:'Complete payment',paid:'We are preparing your order',shipped:o.tracking_number?'Tracking available':'Your parcel is on the way',completed:'Return window details inside',cancelled:'Order closed'}[o.status]||'View details');const money=v=>Number(v||0).toFixed(2);const formatDate=v=>new Intl.DateTimeFormat('en',{day:'numeric',month:'short',year:'numeric'}).format(new Date(v));const itemNames=o=>(o.items||[]).map(i=>i.product_title_en||i.product_title).filter(Boolean).slice(0,2).join(' · ')
+async function load(){loading.value=true;error.value='';try{orders.value=(await getMyOrders({page:1,page_size:100})).data.items||[]}catch(e){error.value=e.response?.data?.detail||'We could not load your orders.'}finally{loading.value=false}}onMounted(load)
 </script>
+<style scoped>
+.orders-page{min-height:100vh;background:#f4f1e8;color:#173f34;padding:1.25rem 1rem 7rem}.orders-page>header{display:flex;align-items:center;gap:1rem}.orders-page header button{width:2.75rem;height:2.75rem;border:1px solid #d8d4c8;border-radius:50%;background:#fffdf7;color:#173f34;font-size:1.2rem}.orders-page header span{font-size:.64rem;font-weight:900;letter-spacing:.18em;color:#708078}.orders-page h1{margin:.1rem 0;font:700 2rem Georgia,serif}.tabs{display:flex;gap:.45rem;overflow:auto;margin:1.2rem 0}.tabs button{white-space:nowrap;border:1px solid #d8d4c8;border-radius:999px;background:transparent;padding:.58rem .75rem;color:#173f34;font-size:.7rem;font-weight:800}.tabs button.active{border-color:#173f34;background:#173f34;color:#e1f56c}.state-card{padding:2.4rem 1.25rem;border-radius:1.5rem;background:#fffdf7;text-align:center}.state-card h2{font:700 1.4rem Georgia,serif}.state-card p{color:#6d7974}.state-card button,.state-card a{display:inline-block;border:0;border-radius:999px;background:#173f34;padding:.7rem 1rem;color:#e1f56c;font-weight:900}.empty-mark{font:700 3rem Georgia,serif;color:#aabb65}.order-list{display:grid;gap:.85rem}.order-card{display:block;padding:1rem;border-radius:1.35rem;background:#fffdf7;color:#173f34;box-shadow:0 9px 28px rgba(23,63,52,.06)}.order-top{display:flex;justify-content:space-between;gap:1rem}.order-top span{font-size:.64rem;color:#78827e}.order-top h2{margin:.2rem 0;font-size:.86rem}.order-top em{align-self:start;border-radius:999px;padding:.34rem .55rem;background:#e8e6dd;font-size:.6rem;font-style:normal;font-weight:900}.order-top .status-pending{background:#fff0c9;color:#754b00}.order-top .status-paid,.order-top .status-shipped{background:#dbece7}.order-top .status-completed{background:#dff263}.item-preview{display:flex;align-items:center;margin:.9rem 0}.item-preview>span{width:2.7rem;height:2.7rem;display:grid;place-items:center;margin-right:-.35rem;border:3px solid #fffdf7;border-radius:50%;background:#dfe4dc;font:700 1rem Georgia,serif}.item-preview p{display:grid;margin:0 0 0 .8rem;min-width:0}.item-preview small{overflow:hidden;color:#75807c;text-overflow:ellipsis;white-space:nowrap}.order-card footer{display:flex;justify-content:space-between;gap:1rem;padding-top:.75rem;border-top:1px solid #e9e5da;font-size:.72rem}.order-card footer span{color:#65726d}.order-card footer strong{white-space:nowrap;font-size:.85rem}@media(min-width:720px){.orders-page{max-width:720px;margin:auto}}
+</style>

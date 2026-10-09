@@ -1,145 +1,30 @@
 <template>
-  <div class="min-h-screen bg-[#F7F7F7]">
-    <!-- Header -->
-    <div class="sticky top-0 z-40 bg-white safe-top border-b border-gray-100">
-      <div class="flex items-center gap-3 px-4 py-3">
-        <button @click="$router.back()" class="text-xl tap-active">←</button>
-        <h1 class="text-base font-bold flex-1">Browse</h1>
-        <button @click="showFilter = !showFilter" class="text-lg tap-active">
-          {{ showFilter ? '✕' : '' }}
-        </button>
-      </div>
-    </div>
-
-    <!-- Filter Bar -->
-    <div v-if="showFilter" class="bg-white px-4 py-3 border-b border-gray-100">
-      <div class="flex gap-2 overflow-x-auto hide-scrollbar">
-        <button
-          v-for="cat in categories"
-          :key="cat.id"
-          @click="filters.category_id = filters.category_id === cat.id ? null : cat.id; fetchProducts()"
-          class="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium tap-active"
-          :class="filters.category_id === cat.id ? 'bg-primary text-white' : 'bg-[#F5F5F5] text-gray-600'"
-        >
-          {{ cat.name_en }}
-        </button>
-      </div>
-      <div class="flex gap-2 mt-2">
-        <select v-model="filters.sort" @change="fetchProducts" class="flex-1 bg-[#F5F5F5] rounded-lg px-3 py-2 text-xs">
-          <option value="">Newest</option>
-          <option value="price_asc">Price ↑</option>
-          <option value="price_desc">Price ↓</option>
-        </select>
-        <select v-model="filters.condition" @change="fetchProducts" class="flex-1 bg-[#F5F5F5] rounded-lg px-3 py-2 text-xs">
-          <option value="">All Conditions</option>
-          <option value="new">New</option>
-          <option value="like_new">Like New</option>
-          <option value="good">Good</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Product Grid -->
-    <div class="px-4 py-4">
-      <p class="text-xs text-gray-500 mb-3">{{ total }} products</p>
-
-      <div class="grid grid-cols-2 gap-3">
-        <MobileProductCard v-for="p in products" :key="p.id" :product="p" />
-      </div>
-
-      <div v-if="loading" class="text-center py-12 text-gray-400">Loading...</div>
-      <div v-if="!loading && products.length === 0" class="text-center py-12 text-gray-400">No products found.</div>
-
-      <!-- Load More -->
-      <div v-if="products.length > 0" class="text-center mt-4">
-        <button
-          @click="loadMore"
-          :disabled="loadingMore"
-          class="bg-white text-primary font-semibold px-8 py-3 rounded-full border border-orange-light tap-active disabled:opacity-50"
-        >
-          {{ loadingMore ? 'Loading...' : 'Load More' }}
-        </button>
-      </div>
-    </div>
-  </div>
+  <main class="browse-page safe-top">
+    <header class="browse-header"><div><span>THE FULL EDIT</span><h1>{{ route.query.q ? `Results for “${route.query.q}”` : 'Browse all' }}</h1></div><button type="button" :aria-expanded="showFilter" aria-controls="browse-filters" @click="showFilter=!showFilter">{{ showFilter?'Close':'Filters' }} <b v-if="activeFilterCount">{{ activeFilterCount }}</b></button></header>
+    <form v-if="showFilter" id="browse-filters" class="filters" @submit.prevent="applyFilters">
+      <fieldset><legend>Category</legend><div class="chips"><button v-for="cat in categories" :key="cat.id" type="button" :class="{active:filters.category_id===cat.id}" :aria-pressed="filters.category_id===cat.id" @click="filters.category_id=filters.category_id===cat.id?null:cat.id">{{ cat.name_en || cat.name }}</button></div></fieldset>
+      <div class="filter-grid"><label>Sort by<select v-model="filters.sort"><option value="">Newest first</option><option value="price_asc">Price: low to high</option><option value="price_desc">Price: high to low</option></select></label><label>Condition<select v-model="filters.condition"><option value="">All conditions</option><option value="new">New</option><option value="like_new">Like new</option><option value="good">Good</option><option value="fair">Fair</option><option value="poor">Worn</option></select></label><label>Minimum price<input v-model.number="filters.price_min" type="number" min="0" step="1" placeholder="€0" /></label><label>Maximum price<input v-model.number="filters.price_max" type="number" min="0" step="1" placeholder="Any" /></label><label>Delivery country<select v-model="filters.ships_to"><option value="">Any destination</option><option v-for="country in countries" :key="country.code" :value="country.code">{{ country.flag_emoji }} {{ country.name_en }}</option></select></label><label>Brand<input v-model.trim="filters.brand" placeholder="Search a brand" /></label><label class="stock-check wide"><input v-model="filters.in_stock" type="checkbox" /> In-stock pieces only</label></div>
+      <div class="filter-actions"><button type="button" @click="clearFilters">Clear all</button><button type="submit">Show products</button></div>
+    </form>
+    <section class="results" aria-live="polite"><div class="results-top"><p><strong>{{ total }}</strong> pieces</p><span v-if="loading">Refreshing…</span></div>
+      <div v-if="loading && !products.length" class="product-grid" aria-label="Loading products"><div v-for="n in 6" :key="n" class="skeleton"></div></div>
+      <div v-else-if="error" class="state-card" role="alert"><h2>We hit a snag</h2><p>{{ error }}</p><button type="button" @click="fetchProducts">Try again</button></div>
+      <div v-else-if="!products.length" class="state-card"><h2>No matches yet</h2><p>Try removing a filter or widening your price range.</p><button type="button" @click="clearFilters">Reset filters</button></div>
+      <div v-else class="product-grid"><MobileProductCard v-for="p in products" :key="p.id" :product="p" /></div>
+      <button v-if="products.length<total" type="button" class="load-more" :disabled="loadingMore" @click="loadMore">{{ loadingMore?'Loading more…':`Show more · ${total-products.length} left` }}</button>
+    </section>
+  </main>
 </template>
-
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import MobileProductCard from '../components/MobileProductCard.vue'
-import { getProducts, getCategories, searchProducts } from '../api'
-
-const route = useRoute()
-const products = ref([])
-const categories = ref([])
-const total = ref(0)
-const page = ref(1)
-const pageSize = 20
-const showFilter = ref(false)
-const loading = ref(true)
-const loadingMore = ref(false)
-
-const filters = reactive({
-  category_id: null,
-  condition: '',
-  sort: '',
-})
-
-const fetchProducts = async () => {
-  loading.value = true
-  try {
-    const params = { page: page.value, page_size: pageSize }
-    if (route.query.q) {
-      const { data } = await searchProducts({ q: route.query.q, ...params })
-      products.value = data.items
-      total.value = data.total
-      return
-    }
-    if (filters.category_id) params.category_id = filters.category_id
-    if (route.query.category) params.category_id = route.query.category
-    if (filters.condition) params.condition_grade = filters.condition
-    if (filters.sort) params.sort = filters.sort
-
-    const { data } = await getProducts(params)
-    products.value = data.items
-    total.value = data.total
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loading.value = false
-  }
-}
-
-const loadMore = async () => {
-  loadingMore.value = true
-  try {
-    const params = { page: page.value + 1, page_size: pageSize }
-    if (filters.category_id) params.category_id = filters.category_id
-    if (filters.condition) params.condition_grade = filters.condition
-    if (filters.sort) params.sort = filters.sort
-    if (route.query.q) {
-      const { data } = await searchProducts({ q: route.query.q, ...params })
-      products.value = [...products.value, ...data.items]
-    } else {
-      const { data } = await getProducts(params)
-      products.value = [...products.value, ...data.items]
-    }
-    page.value++
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loadingMore.value = false
-  }
-}
-
-onMounted(async () => {
-  try {
-    const { data } = await getCategories()
-    categories.value = data
-  } catch {}
-  fetchProducts()
-})
-
-watch(() => route.query.q, () => { page.value = 1; fetchProducts() })
+import { computed,onMounted,reactive,ref,watch } from 'vue'; import { useRoute } from 'vue-router'; import MobileProductCard from '../components/MobileProductCard.vue'; import {getCategories,getCountries,getProducts,searchProducts} from '../api'
+const route=useRoute(),products=ref([]),categories=ref([]),countries=ref([]),total=ref(0),page=ref(1),loading=ref(true),loadingMore=ref(false),error=ref(''),showFilter=ref(false); const pageSize=20
+const filters=reactive({category_id:null,condition:'',sort:'',price_min:'',price_max:'',brand:'',ships_to:'',in_stock:false}); const activeFilterCount=computed(()=>Object.values(filters).filter(v=>v!==''&&v!==null&&v!==false).length)
+function paramsFor(p){const params={page:p,page_size:pageSize}; if(filters.category_id)params.category_id=filters.category_id; else if(route.query.category)params.category_id=route.query.category;if(filters.condition)params.condition_grade=filters.condition;if(filters.sort)params.sort=filters.sort;if(filters.price_min!==''&&filters.price_min!==null)params.price_min=filters.price_min;if(filters.price_max!==''&&filters.price_max!==null)params.price_max=filters.price_max;if(filters.brand)params.brand=filters.brand;if(filters.ships_to)params.ships_to=filters.ships_to;if(filters.in_stock)params.in_stock=true;return params}
+async function fetchProducts(){loading.value=true;error.value='';page.value=1;try{const res=route.query.q?await searchProducts({q:route.query.q,...paramsFor(1)}):await getProducts(paramsFor(1));products.value=res.data.items||[];total.value=res.data.total||0}catch(e){error.value=e.code==='ECONNABORTED'?'The catalogue is taking too long to respond.':e.response?.data?.detail||'Products could not be loaded.'}finally{loading.value=false}}
+async function loadMore(){loadingMore.value=true;try{const next=page.value+1;const res=route.query.q?await searchProducts({q:route.query.q,...paramsFor(next)}):await getProducts(paramsFor(next));products.value.push(...(res.data.items||[]));page.value=next}catch(e){error.value=e.response?.data?.detail||'More products could not be loaded.'}finally{loadingMore.value=false}}
+function applyFilters(){showFilter.value=false;fetchProducts()} function clearFilters(){Object.assign(filters,{category_id:null,condition:'',sort:'',price_min:'',price_max:'',brand:'',ships_to:'',in_stock:false});showFilter.value=false;fetchProducts()}
+onMounted(async()=>{const [cats,countryResult]=await Promise.allSettled([getCategories(),getCountries(),fetchProducts()]);if(cats.status==='fulfilled')categories.value=cats.value.data||[];if(countryResult.status==='fulfilled')countries.value=countryResult.value.data||[]});watch(()=>[route.query.q,route.query.category],fetchProducts)
 </script>
+<style scoped>
+.browse-page{min-height:100vh;background:#f4f1e8;color:#173f34;padding-bottom:7rem}.browse-header{display:flex;align-items:end;justify-content:space-between;gap:1rem;padding:1.45rem 1.25rem 1rem}.browse-header span{font-size:.65rem;font-weight:900;letter-spacing:.18em;color:#718079}.browse-header h1{margin:.2rem 0 0;font:700 2.05rem/1.05 Georgia,serif}.browse-header>button{white-space:nowrap;border:0;border-radius:999px;background:#173f34;color:#e1f56c;padding:.72rem .9rem;font-weight:900}.browse-header b{display:inline-grid;place-items:center;width:1.15rem;height:1.15rem;border-radius:50%;background:#e1f56c;color:#173f34;font-size:.62rem}.filters{margin:0 1.25rem 1rem;padding:1.1rem;border-radius:1.35rem;background:#fffdf7;box-shadow:0 12px 30px rgba(23,63,52,.07)}fieldset{border:0;padding:0;margin:0}legend,.filter-grid label{font-size:.7rem;font-weight:900;color:#5e6b66}.chips{display:flex;gap:.45rem;overflow:auto;padding:.55rem 0}.chips button{white-space:nowrap;border:1px solid #d8d4c8;border-radius:999px;background:transparent;padding:.5rem .7rem;color:#173f34;font-size:.7rem}.chips button.active{background:#dff263;border-color:#dff263;font-weight:900}.filter-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-top:.7rem}.filter-grid label{display:grid;gap:.3rem}.filter-grid input,.filter-grid select{width:100%;border:1px solid #d8d4c8;border-radius:.75rem;background:white;padding:.7rem;color:#173f34}.wide{grid-column:1/-1}.stock-check{display:flex!important;align-items:center;gap:.5rem}.stock-check input{width:auto}.filter-actions{display:flex;justify-content:flex-end;gap:.55rem;margin-top:1rem}.filter-actions button,.state-card button{border:1px solid #173f34;border-radius:999px;background:transparent;padding:.65rem .9rem;color:#173f34;font-weight:900}.filter-actions button:last-child,.state-card button{background:#173f34;color:#e1f56c}.results{padding:0 1.25rem}.results-top{display:flex;justify-content:space-between;align-items:center;color:#718079;font-size:.72rem}.results-top strong{color:#173f34}.product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem}.skeleton{aspect-ratio:.72;border-radius:1.15rem;background:linear-gradient(100deg,#e5e1d6 30%,#f5f2e9 50%,#e5e1d6 70%);background-size:220% 100%;animation:shine 1.25s infinite}.state-card{padding:2.5rem 1.25rem;border-radius:1.35rem;background:#fffdf7;text-align:center}.state-card h2{font:700 1.45rem Georgia,serif}.state-card p{color:#697570}.load-more{display:block;margin:1.25rem auto 0;border:1px solid #173f34;border-radius:999px;background:transparent;padding:.8rem 1.2rem;color:#173f34;font-weight:900}.load-more:disabled{opacity:.55}@keyframes shine{to{background-position-x:-220%}}@media(min-width:720px){.browse-page{max-width:980px;margin:auto}.product-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+</style>

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
-from app.schemas.product import ProductOut
+from app.schemas.product import PublicProductOut
 
 
 # ============================================================
@@ -23,7 +23,7 @@ class CartItemOut(BaseModel):
     id: int
     product_id: int
     quantity: int
-    product: Optional[ProductOut] = None
+    product: Optional[PublicProductOut] = None
 
     model_config = {"from_attributes": True}
 

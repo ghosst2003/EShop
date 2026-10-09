@@ -37,6 +37,10 @@
           <el-icon><Picture /></el-icon>
           <span>Banner 管理</span>
         </el-menu-item>
+        <el-menu-item index="/promo-items">
+          <el-icon><Grid /></el-icon>
+          <span>Promo Items</span>
+        </el-menu-item>
         <el-menu-item index="/shipping-methods">
           <el-icon><Van /></el-icon>
           <span>派送方式</span>
@@ -83,7 +87,7 @@
 
 <script setup>
 import { useRouter, useRoute } from 'vue-router'
-import { Goods, Menu, Document, ArrowDown, ShoppingCart, Timer, Picture, Van, Location, Flag, CreditCard, Setting } from '@element-plus/icons-vue'
+import { Goods, Menu, Document, ArrowDown, ShoppingCart, Timer, Picture, Van, Location, Flag, CreditCard, Setting, Grid } from '@element-plus/icons-vue'
 import { useAuthStore } from '../store/auth'
 
 const router = useRouter()

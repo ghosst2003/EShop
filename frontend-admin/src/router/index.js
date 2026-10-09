@@ -19,6 +19,7 @@ const routes = [
       { path: 'flash-deals/new', name: 'FlashDealNew', component: () => import('../views/FlashDealForm.vue') },
       { path: 'flash-deals/:id/edit', name: 'FlashDealEdit', component: () => import('../views/FlashDealForm.vue') },
       { path: 'banners', name: 'Banners', component: () => import('../views/BannersList.vue') },
+      { path: 'promo-items', name: 'PromoItems', component: () => import('../views/PromoItems.vue') },
       { path: 'shipping-methods', name: 'ShippingMethods', component: () => import('../views/ShippingMethods.vue') },
       { path: 'shipping-origins', name: 'ShippingOrigins', component: () => import('../views/ShippingOrigins.vue') },
       { path: 'return-policy', name: 'ReturnPolicy', component: () => import('../views/ReturnPolicy.vue') },

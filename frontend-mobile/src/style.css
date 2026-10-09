@@ -17,6 +17,10 @@
     -webkit-user-select: auto;
     user-select: auto;
   }
+
+  h1[tabindex='-1']:focus {
+    outline: none;
+  }
 }
 
 @layer utilities {

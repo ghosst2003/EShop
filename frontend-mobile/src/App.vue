@@ -16,11 +16,17 @@
       class="flex-1 flex flex-col items-center justify-center py-2"
       :class="isActive(tab.path) ? 'text-primary' : 'text-gray-400'"
     >
-      <span class="text-[22px] leading-none">{{ tab.icon }}</span>
-      <span class="mt-0.5 text-[10px] font-medium truncate w-full text-center">{{ tab.label }}</span>
-      <span v-if="tab.badge" class="absolute top-1 right-1/4 bg-red-500 text-white text-[8px] font-bold w-4 h-4 rounded-full flex items-center justify-center -mt-1">
-        {{ tab.badge > 9 ? '9+' : tab.badge }}
+      <span class="relative inline-flex items-center justify-center text-[22px] leading-none">
+        {{ tab.icon }}
+        <span
+          v-if="tab.badge"
+          class="absolute -top-2 -right-3 min-w-[17px] h-[17px] px-1 rounded-full flex items-center justify-center bg-[#17483b] text-[#d9f06a] text-[9px] leading-none font-extrabold ring-2 ring-white"
+          aria-label="Cart item count"
+        >
+          {{ tab.badge > 99 ? '99+' : tab.badge }}
+        </span>
       </span>
+      <span class="mt-0.5 text-[10px] font-medium truncate w-full text-center">{{ tab.label }}</span>
     </router-link>
   </div>
 </template>
@@ -54,7 +60,7 @@ const tabs = computed(() => [
   { path: isAuthenticated.value ? '/profile' : '/login', icon: '👤', label: isAuthenticated.value ? 'Profile' : 'Login' },
 ])
 
-const showBottomTabBar = computed(() => !route.path.startsWith('/products/') && !route.path.startsWith('/checkout') && !route.path.startsWith('/my-orders') && !route.path.startsWith('/order-success') && !route.path.startsWith('/register'))
+const showBottomTabBar = computed(() => !['/products/', '/p/', '/cart', '/checkout', '/my-orders', '/order-success', '/register', '/login', '/forgot-password', '/verify-email', '/saved', '/legal'].some(prefix => route.path.startsWith(prefix)))
 
 const isActive = (path) => {
   if (path === '/') return route.path === '/'

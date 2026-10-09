@@ -33,6 +33,15 @@ class ProductImageOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PublicProductImageOut(BaseModel):
+    image_url: str
+    thumbnail_url: Optional[str] = None
+    alt_text: Optional[str] = None
+    sort_order: int
+
+    model_config = {"from_attributes": True}
+
+
 class ProductCreate(BaseModel):
     category_id: int
     title: str
@@ -128,11 +137,45 @@ class ProductOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PublicProductOut(BaseModel):
+    id: int
+    category_id: int
+    title: str
+    title_en: Optional[str] = None
+    slug: str
+    description: Optional[str] = None
+    description_en: Optional[str] = None
+    original_price: Optional[float] = None
+    sale_price: float
+    currency: str
+    condition_grade: str
+    condition_note: Optional[str] = None
+    brand: Optional[str] = None
+    tags: Optional[list] = None
+    status: str
+    stock_quantity: int = 0
+    auto_manage_stock: bool = True
+    weight_kg: Optional[Decimal] = None
+    shipping_category: Optional[str] = None
+    origin_country_code: Optional[str] = None
+    pickup_enabled: bool = False
+    images: list["PublicProductImageOut"] = []
+
+    model_config = {"from_attributes": True}
+
+
+class SharedProductOut(BaseModel):
+    product: PublicProductOut
+    public_reference: str
+
+
 class ProductListResponse(BaseModel):
-    items: list[ProductOut]
+    items: list[PublicProductOut]
     total: int
     page: int
     page_size: int
+    next_cursor: Optional[str] = None
+    has_more: Optional[bool] = None
 
 
 class ProductStatusUpdate(BaseModel):

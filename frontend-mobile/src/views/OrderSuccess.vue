@@ -1,24 +1,11 @@
 <template>
-  <div class="min-h-screen bg-[#F7F7F7] flex flex-col items-center justify-center px-6">
-    <div class="text-center">
-      <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-        <span class="text-4xl">✓</span>
-      </div>
-      <h1 class="text-2xl font-extrabold text-gray-900 mb-2">Order Placed!</h1>
-      <p class="text-gray-500 mb-8">Your order has been confirmed and will be shipped soon.</p>
-
-      <div class="space-y-3">
-        <router-link to="/my-orders" class="block w-full bg-primary text-white font-bold py-3 rounded-full tap-active">
-          View My Orders
-        </router-link>
-        <router-link to="/" class="block w-full bg-white text-primary font-bold py-3 rounded-full border border-orange-light tap-active">
-          Continue Shopping
-        </router-link>
-      </div>
-    </div>
-  </div>
+  <main class="success-page safe-top"><section class="status-panel"><span class="brand">b.</span><div v-if="loading" class="status-copy" role="status"><div class="status-icon pending">…</div><h1>Checking payment</h1><p>We are confirming your payment with our secure provider.</p></div><div v-else-if="error" class="status-copy" role="alert"><div class="status-icon failed">!</div><h1>We cannot verify this order</h1><p>{{ error }}</p></div><div v-else-if="isPaid" class="status-copy"><div class="status-icon paid">✓</div><span class="eyebrow">PAYMENT CONFIRMED</span><h1>Your find is yours</h1><p>Order {{ order.order_number }} is confirmed. We will update you when it is on the way.</p></div><div v-else class="status-copy"><div class="status-icon pending">⌛</div><span class="eyebrow">ORDER SAVED</span><h1>{{ order.payment_status==='failed'?'Payment needs attention':'Payment is processing' }}</h1><p>{{ order.payment_status==='failed'?'Your order is safe, but the payment was not completed. Try again from the order page.':'This may take a moment. Your order page will show the latest status.' }}</p></div><div class="actions"><router-link v-if="order" :to="`/my-orders/${order.id}`">View order</router-link><router-link to="/">Continue shopping</router-link></div></section></main>
 </template>
-
 <script setup>
-// Simple success page
+import {computed,onMounted,ref} from 'vue';import {useRoute} from 'vue-router';import {getMyOrder} from '../api'
+const route=useRoute(),order=ref(null),loading=ref(true),error=ref('');const isPaid=computed(()=>['paid','shipped','completed'].includes(order.value?.status)||order.value?.payment_status==='paid')
+const wait=ms=>new Promise(r=>setTimeout(r,ms));async function load(){const id=route.query.order_id||sessionStorage.getItem('pending_order_id');if(!id){error.value='This link does not include an order number.';loading.value=false;return}try{for(let n=0;n<3;n++){order.value=(await getMyOrder(id)).data;if(isPaid.value)break;if(n<2)await wait(1500)}if(isPaid.value)sessionStorage.removeItem('pending_order_id')}catch(e){error.value=e.response?.data?.detail||'The order could not be loaded.'}finally{loading.value=false}}onMounted(load)
 </script>
+<style scoped>
+.success-page{min-height:100vh;display:grid;place-items:center;background:#f4f1e8;color:#173f34;padding:1.25rem}.status-panel{position:relative;width:min(100%,32rem);overflow:hidden;border-radius:2rem;background:#fffdf7;padding:2.2rem 1.5rem;text-align:center;box-shadow:0 20px 55px rgba(23,63,52,.1)}.brand{position:absolute;left:1.25rem;top:1rem;font:700 2rem Georgia,serif}.status-icon{width:5rem;height:5rem;display:grid;place-items:center;margin:1rem auto;border-radius:50%;font-size:2rem;font-weight:900}.status-icon.paid{background:#dff263}.status-icon.pending{background:#e4e9e3}.status-icon.failed{background:#f5d9d3;color:#9d3434}.eyebrow{font-size:.65rem;font-weight:900;letter-spacing:.18em;color:#6d7b75}.status-copy h1{margin:.45rem 0;font:700 2rem Georgia,serif}.status-copy p{max-width:24rem;margin:.6rem auto 1.5rem;color:#65726d;line-height:1.55}.actions{display:grid;gap:.65rem}.actions a{border:1px solid #173f34;border-radius:999px;padding:.85rem;color:#173f34;font-weight:900}.actions a:first-child{background:#173f34;color:#e1f56c}
+</style>

@@ -12,6 +12,15 @@ class Settings(BaseSettings):
     secret_key: str = "change-this-to-a-random-secret-key"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 480
+    environment: str = "development"
+    frontend_url: str = "http://localhost:5175"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_use_tls: bool = True
+    cors_origins: str = "http://localhost:5173,http://localhost:5175,http://127.0.0.1:5175"
 
 
 settings = Settings()

@@ -51,6 +51,16 @@ def create_checkout_session(
             "quantity": item.quantity,
         })
 
+    if order.shipping_price and Decimal(str(order.shipping_price)) > 0:
+        line_items.append({
+            "price_data": {
+                "currency": order.currency.lower(),
+                "product_data": {"name": "Standard delivery"},
+                "unit_amount": int(Decimal(str(order.shipping_price)) * 100),
+            },
+            "quantity": 1,
+        })
+
     if not line_items:
         line_items.append({
             "price_data": {
@@ -68,6 +78,7 @@ def create_checkout_session(
         success_url=f"{FRONTEND_URL}/order-success?session_id={{CHECKOUT_SESSION_ID}}&order_id={order.id}",
         cancel_url=f"{FRONTEND_URL}/my-orders/{order.id}",
         metadata={"order_id": order.id},
+        payment_intent_data={"metadata": {"order_id": order.id}},
     )
 
     order.payment_intent_id = session.payment_intent or session.id
@@ -113,6 +124,21 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                     note="Stripe 支付成功",
                 )
                 db.add(log)
+                db.commit()
+
+    elif event["type"] in ("checkout.session.expired", "payment_intent.payment_failed"):
+        payment_object = event["data"]["object"]
+        order_id = payment_object.get("metadata", {}).get("order_id")
+        if order_id:
+            order = db.query(Order).filter(Order.id == int(order_id)).first()
+            if order and order.status == "pending":
+                order.payment_status = "failed"
+                db.add(OrderStatusLog(
+                    order_id=order.id,
+                    from_status="pending",
+                    to_status="pending",
+                    note="Payment was not completed; the buyer can retry.",
+                ))
                 db.commit()
 
     return {"received": True}

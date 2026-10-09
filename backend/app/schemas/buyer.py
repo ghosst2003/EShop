@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional, List
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.order import OrderOut
 
@@ -11,8 +11,14 @@ from app.schemas.order import OrderOut
 # 买家下单
 # ============================================================
 
+class BuyerOrderItemSelection(BaseModel):
+    product_id: int
+    quantity: int = Field(ge=1)
+
+
 class BuyerOrderCreate(BaseModel):
     """买家自主下单请求体"""
+    items: Optional[List[BuyerOrderItemSelection]] = None
     address_id: Optional[int] = None  # 使用已保存的地址
     buyer_name: Optional[str] = None  # 如果不使用地址，直接提供
     buyer_email: Optional[str] = None
@@ -21,6 +27,7 @@ class BuyerOrderCreate(BaseModel):
     payment_method: str = "stripe"
     shipping_method: Optional[str] = None
     shipping_price: Optional[float] = None
+    coupon_code: Optional[str] = None
     notes: Optional[str] = None
 
 

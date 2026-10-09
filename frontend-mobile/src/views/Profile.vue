@@ -1,64 +1,43 @@
 <template>
-  <div class="min-h-screen bg-[#F7F7F7]">
-    <!-- Header -->
-    <div class="bg-primary safe-top">
-      <div class="flex items-center px-4 py-6">
-        <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center text-primary text-2xl font-bold">
-          {{ user?.display_name?.[0]?.toUpperCase() || '?' }}
-        </div>
-        <div class="ml-4">
-          <h2 class="text-white text-lg font-bold">{{ user?.display_name || 'User' }}</h2>
-          <p class="text-orange-200 text-sm">{{ user?.email || '' }}</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Menu -->
-    <div class="px-4 py-4 space-y-3">
-      <router-link to="/my-orders" class="flex items-center gap-3 bg-white rounded-xl px-4 py-4 tap-active">
-        <span class="text-xl">📦</span>
-        <span class="flex-1 text-sm font-medium">My Orders</span>
-        <span class="text-gray-400">→</span>
-      </router-link>
-
-      <div class="flex items-center gap-3 bg-white rounded-xl px-4 py-4 tap-active" @click="showSettings = !showSettings">
-        <span class="text-xl">⚙️</span>
-        <span class="flex-1 text-sm font-medium">Settings</span>
-        <span class="text-gray-400">{{ showSettings ? '↑' : '→' }}</span>
-      </div>
-
-      <div v-if="showSettings" class="bg-white rounded-xl overflow-hidden">
-        <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-          <span class="text-sm">Delivery Country</span>
-          <span class="text-sm text-gray-500">{{ deliveryCountryName }}</span>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-3 bg-white rounded-xl px-4 py-4 tap-active" @click="handleLogout">
-        <span class="text-xl"></span>
-        <span class="flex-1 text-sm font-medium text-red-500">Sign Out</span>
-      </div>
-    </div>
-  </div>
+  <main class="profile-page safe-top">
+    <header class="hero"><span class="brand">b.</span><div class="avatar" aria-hidden="true"><img v-if="user?.avatar" :src="user.avatar" alt="" /><template v-else>{{ initial }}</template></div><p>YOUR BECOOL ACCOUNT</p><h1>{{ user?.display_name || user?.username }}</h1><span>{{ user?.email || `@${user?.username}` }}</span></header>
+    <section class="quick-links" aria-label="Account links"><router-link to="/my-orders"><strong>Orders</strong><span>Track and manage purchases →</span></router-link><router-link to="/saved"><strong>Saved</strong><span>Your shortlisted pieces →</span></router-link></section>
+    <section class="panel">
+      <div class="section-heading"><div><span>PERSONAL DETAILS</span><h2>Your profile</h2></div><button type="button" @click="editingProfile=!editingProfile">{{ editingProfile?'Cancel':'Edit' }}</button></div>
+      <form v-if="editingProfile" class="form-grid" @submit.prevent="saveProfile"><label>Display name<input v-model.trim="profile.display_name" required /></label><label>Email<input v-model.trim="profile.email" type="email" /></label><label>Phone<input v-model.trim="profile.phone" type="tel" /></label><label>Avatar image URL<input v-model.trim="profile.avatar" type="url" placeholder="https://…" /></label><p v-if="profileMessage" :class="{error:profileError}" role="status">{{ profileMessage }}</p><button class="primary" :disabled="savingProfile">{{ savingProfile?'Saving…':'Save changes' }}</button></form>
+      <dl v-else><div><dt>Email</dt><dd>{{ user?.email || 'Not added' }}</dd></div><div><dt>Phone</dt><dd>{{ user?.phone || 'Not added' }}</dd></div></dl>
+    </section>
+    <section class="panel">
+      <div class="section-heading"><div><span>DELIVERY</span><h2>Country & addresses</h2></div><button type="button" @click="openAddressForm">Add</button></div>
+      <label class="country-label">Shopping country<select :value="countryCode || ''" @change="setLocation($event.target.value)"><option value="" disabled>Choose a country</option><option v-for="country in countriesCache" :key="country.code" :value="country.code">{{ country.flag_emoji }} {{ country.name_en }}</option></select></label>
+      <div v-if="addressesLoading" class="muted">Loading addresses…</div><div v-else-if="!addresses.length" class="empty-address">No saved delivery addresses yet.</div>
+      <article v-for="address in addresses" :key="address.id" class="address-card"><div><strong>{{ address.label || 'Delivery address' }} <small v-if="address.is_default">DEFAULT</small></strong><p>{{ address.recipient_name }} · {{ address.phone }}</p><p>{{ address.street_address }}, {{ address.city }} {{ address.postal_code }}, {{ address.country }}</p></div><div class="address-actions"><button type="button" @click="editAddress(address)">Edit</button><button type="button" class="danger" @click="removeAddress(address)">Delete</button></div></article>
+      <form v-if="showAddressForm" class="form-grid address-form" @submit.prevent="saveAddress"><label>Label<input v-model.trim="addressForm.label" placeholder="Home" /></label><label>Recipient name<input v-model.trim="addressForm.recipient_name" required /></label><label>Phone<input v-model.trim="addressForm.phone" type="tel" required /></label><label>Country<select v-model="addressForm.country" required><option value="" disabled>Choose</option><option v-for="country in countriesCache" :key="country.code" :value="country.code">{{ country.name_en }}</option></select></label><label>City<input v-model.trim="addressForm.city" required /></label><label>Postal code<input v-model.trim="addressForm.postal_code" required /></label><label class="wide">Street address<textarea v-model.trim="addressForm.street_address" required></textarea></label><label class="check wide"><input v-model="addressForm.is_default" type="checkbox" /> Make this my default address</label><p v-if="addressMessage" class="wide error" role="alert">{{ addressMessage }}</p><div class="form-actions wide"><button type="button" @click="showAddressForm=false">Cancel</button><button class="primary" :disabled="savingAddress">{{ savingAddress?'Saving…':'Save address' }}</button></div></form>
+    </section>
+    <section class="panel policy-links"><span class="section-kicker">HELP & POLICIES</span><router-link to="/legal/returns">Returns <span>→</span></router-link><router-link to="/legal/privacy">Privacy <span>→</span></router-link><router-link to="/legal/terms">Terms <span>→</span></router-link><router-link to="/legal/support">Support <span>→</span></router-link></section>
+    <section class="panel"><div class="section-heading"><div><span>YOUR DATA</span><h2>Privacy controls</h2></div></div><p class="privacy-copy">Request a copy of your account data or ask us to delete it.</p><form class="form-grid" @submit.prevent="sendDataRequest"><label>Request type<select v-model="dataRequest.type"><option value="data_export">Export my data</option><option value="data_deletion">Delete my account data</option></select></label><label class="wide">Details<textarea v-model.trim="dataRequest.details" placeholder="Optional context"></textarea></label><p v-if="dataRequestMessage" class="wide" :class="{error:dataRequestError}" role="status">{{ dataRequestMessage }}</p><button class="primary wide" :disabled="dataRequestPending">{{ dataRequestPending?'Sending…':'Submit request' }}</button></form></section>
+    <button type="button" class="signout" @click="logout">Sign out</button>
+  </main>
 </template>
-
 <script setup>
-import { ref, computed } from 'vue'
-import { useAuth } from '../composables/useAuth'
-import { useLocation } from '../composables/useLocation'
-import { useCountries } from '../composables/useCountries'
-
-const { user, logout } = useAuth()
-const { countryCode } = useLocation()
-const { getCountryByCode } = useCountries()
-
-const showSettings = ref(false)
-const deliveryCountryName = computed(() => {
-  const country = countryCode.value ? getCountryByCode(countryCode.value) : null
-  return country?.name_en || 'Not set'
-})
-
-const handleLogout = () => {
-  logout()
-}
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { createAddress, deleteAddress, getAddresses, submitDataRequest, updateAddress } from '../api'
+import { useAuth } from '../composables/useAuth'; import { useCountries } from '../composables/useCountries'; import { useLocation } from '../composables/useLocation'
+const {user,logout,updateProfile}=useAuth(); const {countryCode,setLocation}=useLocation(); const {countriesCache,loadCountries}=useCountries()
+const initial=computed(()=>(user.value?.display_name || user.value?.username || '?')[0].toUpperCase()); const editingProfile=ref(false),savingProfile=ref(false),profileMessage=ref(''),profileError=ref(false); const profile=reactive({display_name:'',email:'',phone:'',avatar:''})
+watch(user,(v)=>Object.assign(profile,{display_name:v?.display_name||'',email:v?.email||'',phone:v?.phone||'',avatar:v?.avatar||''}),{immediate:true})
+async function saveProfile(){savingProfile.value=true;profileMessage.value='';try{await updateProfile({...profile});profileMessage.value='Profile updated.';profileError.value=false;editingProfile.value=false}catch(e){profileMessage.value=e.response?.data?.detail||'Could not update your profile.';profileError.value=true}finally{savingProfile.value=false}}
+const addresses=ref([]),addressesLoading=ref(true),showAddressForm=ref(false),savingAddress=ref(false),editingAddressId=ref(null),addressMessage=ref(''); const blankAddress=()=>({label:'',recipient_name:user.value?.display_name||'',phone:user.value?.phone||'',country:countryCode.value||'',city:'',postal_code:'',street_address:'',is_default:false}); const addressForm=reactive(blankAddress())
+async function loadAddresses(){addressesLoading.value=true;try{addresses.value=(await getAddresses()).data}catch{addresses.value=[]}finally{addressesLoading.value=false}}
+function openAddressForm(){editingAddressId.value=null;Object.assign(addressForm,blankAddress());addressMessage.value='';showAddressForm.value=true} function editAddress(a){editingAddressId.value=a.id;Object.assign(addressForm,{...a});addressMessage.value='';showAddressForm.value=true}
+async function saveAddress(){savingAddress.value=true;addressMessage.value='';try{if(editingAddressId.value)await updateAddress(editingAddressId.value,{...addressForm});else await createAddress({...addressForm});showAddressForm.value=false;await loadAddresses()}catch(e){addressMessage.value=e.response?.data?.detail||'Could not save the address.'}finally{savingAddress.value=false}}
+async function removeAddress(a){try{await deleteAddress(a.id);addresses.value=addresses.value.filter(x=>x.id!==a.id)}catch(e){addressMessage.value=e.response?.data?.detail||'Could not delete the address.'}}
+const dataRequest=reactive({type:'data_export',details:''}),dataRequestPending=ref(false),dataRequestMessage=ref(''),dataRequestError=ref(false)
+async function sendDataRequest(){dataRequestPending.value=true;dataRequestMessage.value='';dataRequestError.value=false;try{await submitDataRequest({email:user.value?.email,request_type:dataRequest.type,details:dataRequest.details});dataRequestMessage.value='Request received. Support will follow up by email.';dataRequest.details=''}catch(e){dataRequestError.value=true;dataRequestMessage.value=e.response?.data?.detail||'Could not submit the request.'}finally{dataRequestPending.value=false}}
+onMounted(async()=>{await Promise.all([loadCountries(),loadAddresses()])})
 </script>
+<style scoped>
+.profile-page{min-height:100vh;background:#f4f1e8;color:#173f34;padding:0 1rem 7rem}.hero{position:relative;margin:0 -1rem 1rem;padding:1.5rem 1.25rem 2rem;background:#173f34;color:#fffdf7;text-align:center;border-radius:0 0 2rem 2rem}.brand{position:absolute;left:1.25rem;top:1.1rem;font:700 2rem Georgia,serif;color:#e1f56c}.avatar{width:4.4rem;height:4.4rem;margin:auto;border-radius:50%;display:grid;place-items:center;background:#e1f56c;color:#173f34;font:700 2rem Georgia,serif}.hero p{margin:.85rem 0 .2rem;font-size:.65rem;font-weight:900;letter-spacing:.18em;color:#b9c9c3}.hero h1{margin:0;font:700 1.9rem Georgia,serif}.hero>span:last-child{display:block;margin-top:.3rem;color:#ced9d5;font-size:.82rem}.quick-links{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}.quick-links a{display:flex;flex-direction:column;gap:.35rem;padding:1rem;border-radius:1.25rem;background:#dff263;color:#173f34}.quick-links strong{font:700 1.2rem Georgia,serif}.quick-links span{font-size:.72rem}.panel{margin-top:1rem;padding:1.15rem;border-radius:1.4rem;background:#fffdf7;box-shadow:0 9px 28px rgba(23,63,52,.06)}.section-heading{display:flex;justify-content:space-between;align-items:start;gap:1rem}.section-heading span,.section-kicker{font-size:.64rem;font-weight:900;letter-spacing:.16em;color:#718079}.section-heading h2{margin:.15rem 0 1rem;font:700 1.35rem Georgia,serif}.section-heading>button{border:1px solid #d8d4c8;border-radius:999px;background:transparent;padding:.48rem .8rem;color:#173f34;font-weight:800}.panel dl{margin:0}.panel dl div{display:flex;justify-content:space-between;padding:.7rem 0;border-top:1px solid #ebe7dc}.panel dt{color:#6b7773}.panel dd{margin:0;font-weight:700}.form-grid{display:grid;gap:.8rem}.form-grid label,.country-label{display:grid;gap:.35rem;font-size:.72rem;font-weight:800;color:#5f6c67}.form-grid input,.form-grid select,.form-grid textarea,.country-label select{width:100%;border:1px solid #d9d5ca;border-radius:.85rem;background:white;padding:.78rem;color:#173f34}.form-grid textarea{min-height:5rem;resize:vertical}.primary{border:0!important;background:#173f34!important;color:#e1f56c!important;font-weight:900}.muted,.empty-address{padding:.85rem 0;color:#74807c;font-size:.82rem}.address-card{padding:.9rem 0;border-top:1px solid #ebe7dc}.address-card strong{font-size:.9rem}.address-card small{border-radius:999px;padding:.2rem .4rem;background:#e1f56c;font-size:.55rem}.address-card p{margin:.3rem 0;color:#68756f;font-size:.78rem;line-height:1.4}.address-actions{display:flex;gap:.45rem;margin-top:.5rem}.address-actions button,.form-actions button{border:1px solid #d8d4c8;border-radius:999px;background:transparent;padding:.45rem .7rem;color:#173f34;font-size:.7rem;font-weight:800}.address-actions .danger{color:#a03333}.address-form{margin-top:1rem;padding-top:1rem;border-top:1px solid #ebe7dc}.check{display:flex!important;align-items:center}.check input{width:auto}.form-actions{display:flex;justify-content:flex-end;gap:.5rem}.error{color:#a03333}.policy-links{display:grid}.policy-links>a{display:flex;justify-content:space-between;padding:.85rem 0;border-top:1px solid #ebe7dc;color:#173f34;font-weight:800}.policy-links .section-kicker{padding-bottom:.8rem}.signout{width:100%;margin-top:1rem;border:1px solid #d3b7b2;border-radius:999px;background:transparent;padding:.9rem;color:#9d3636;font-weight:900}@media(min-width:720px){.profile-page{max-width:720px;margin:auto}.form-grid{grid-template-columns:1fr 1fr}.wide{grid-column:1/-1}}
+.avatar{overflow:hidden}.avatar img{width:100%;height:100%;object-fit:cover}
+.privacy-copy{margin-top:0;color:#68756f;font-size:.8rem;line-height:1.5}
+</style>
