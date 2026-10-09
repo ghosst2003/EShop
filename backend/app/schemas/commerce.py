@@ -51,3 +51,18 @@ class ReturnRequestOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class AdminReturnStatusUpdate(BaseModel):
+    status: str
+    note: Optional[str] = Field(None, max_length=1000)
+
+
+class AdminReturnOut(ReturnRequestOut):
+    buyer_id: int
+    updated_at: datetime
+    order_number: str
+    buyer_name: str
+    buyer_email: Optional[str] = None
+    order_total: float
+    payment_status: str

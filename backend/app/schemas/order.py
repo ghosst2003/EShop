@@ -62,6 +62,19 @@ class OrderStatusLogOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class OrderFinancialOut(BaseModel):
+    subtotal: Decimal
+    discount_amount: Decimal
+    shipping_amount: Decimal
+    tax_amount: Decimal
+    total_amount: Decimal
+    tax_rate: Decimal
+    prices_include_tax: int
+    coupon_code: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
 class OrderOut(BaseModel):
     id: int
     order_number: str
@@ -89,6 +102,7 @@ class OrderOut(BaseModel):
     completed_at: Optional[datetime]
     items: List[OrderItemOut] = []
     status_logs: List[OrderStatusLogOut] = []
+    financials: Optional[OrderFinancialOut] = None
 
     model_config = {"from_attributes": True}
 

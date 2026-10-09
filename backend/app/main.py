@@ -1,3 +1,6 @@
+import asyncio
+import contextlib
+import logging
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,7 +37,11 @@ from app.routers import (
     admin_promo_items,
     promo_items_public,
     commerce,
+    admin_returns,
+    seo,
 )
+from app.database import SessionLocal
+from app.services.orders import release_expired_reservations
 
 is_production = settings.environment.lower() == "production"
 app = FastAPI(
@@ -100,6 +107,7 @@ app.include_router(banners_public.router, prefix="/api/banners", tags=["Banners 
 app.include_router(gdpr_public.router, prefix="/api/gdpr", tags=["GDPR - Public"])
 app.include_router(admin_gdpr.router, prefix="/api/admin/gdpr", tags=["GDPR - Admin"])
 app.include_router(admin_orders.router, prefix="/api/admin/orders", tags=["Orders - Admin"])
+app.include_router(admin_returns.router, prefix="/api/admin/returns", tags=["Returns - Admin"])
 app.include_router(cart.router, prefix="/api/cart", tags=["Shopping Cart"])
 app.include_router(buyer_orders.router, prefix="/api/orders", tags=["Orders - Buyer"])
 app.include_router(payment.router, prefix="/api/payments", tags=["Payments"])
@@ -112,11 +120,39 @@ app.include_router(shipping_info.router, prefix="/api/shipping-info", tags=["Shi
 app.include_router(admin_promo_items.router, prefix="/api/admin/promo-items", tags=["Promo Items - Admin"])
 app.include_router(promo_items_public.router, prefix="/api/promo-items", tags=["Promo Items - Public"])
 app.include_router(commerce.router, prefix="/api", tags=["Saved Products & Reviews"])
+app.include_router(seo.router)
 
 
 @app.get("/api/health", tags=["Health"])
 def health_check():
     return {"status": "ok"}
+
+
+async def _reservation_reaper():
+    while True:
+        await asyncio.sleep(60)
+        db = SessionLocal()
+        try:
+            await asyncio.to_thread(release_expired_reservations, db)
+        except Exception:
+            db.rollback()
+            logging.getLogger(__name__).exception("Could not release expired inventory reservations")
+        finally:
+            db.close()
+
+
+@app.on_event("startup")
+async def start_reservation_reaper():
+    app.state.reservation_reaper = asyncio.create_task(_reservation_reaper())
+
+
+@app.on_event("shutdown")
+async def stop_reservation_reaper():
+    task = getattr(app.state, "reservation_reaper", None)
+    if task:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 # 挂载上传文件目录
@@ -127,6 +163,14 @@ if uploads_dir.exists():
 # 挂载管理端前端 (开发阶段可选)
 admin_dir = Path(__file__).parent.parent / "static" / "admin"
 buyer_dir = Path(__file__).parent.parent / "static" / "buyer"
+mobile_dir = Path(__file__).parent.parent / "static" / "mobile"
+
+# Mount mobile assets before the buyer catch-all so product SEO routes can
+# hydrate the mobile app instead of being intercepted as a desktop SPA path.
+if mobile_dir.exists():
+    mobile_assets_dir = mobile_dir / "assets"
+    if mobile_assets_dir.exists():
+        app.mount("/mobile/assets", StaticFiles(directory=mobile_assets_dir), name="mobile-assets")
 
 if admin_dir.exists():
     # 管理端静态资源
@@ -160,12 +204,7 @@ if buyer_dir.exists():
         raise HTTPException(status_code=404, detail="Not Found")
 
 # 手机端前端静态文件
-mobile_dir = Path(__file__).parent.parent / "static" / "mobile"
 if mobile_dir.exists():
-    mobile_assets_dir = mobile_dir / "assets"
-    if mobile_assets_dir.exists():
-        app.mount("/mobile/assets", StaticFiles(directory=mobile_assets_dir), name="mobile-assets")
-
     @app.get("/mobile/{full_path:path}")
     async def serve_mobile_spa(full_path: str):
         index_file = mobile_dir / "index.html"

@@ -164,9 +164,12 @@ const savingAddress = ref(false)
 const shippingLoading = ref(false)
 const shippingTotal = ref(0)
 const shippingError = ref('')
+const authoritativeTotal = ref(null)
 const termsAccepted = ref(false)
 const placing = ref(false)
 const createdOrderId = ref(null)
+const checkoutAttemptKey = ref(sessionStorage.getItem('esh_checkout_idempotency_key') || crypto.randomUUID())
+sessionStorage.setItem('esh_checkout_idempotency_key', checkoutAttemptKey.value)
 const couponCode = ref(sessionStorage.getItem('esh_promo_code') || '')
 const addressForm = reactive({
   recipient_name: '',
@@ -182,12 +185,13 @@ const selectedAddress = computed(() => addresses.value.find(address => address.i
 const destinationCountry = computed(() => selectedAddress.value?.country || addressForm.country || countryCode.value || '')
 const promoDiscount = computed(() => couponCode.value === 'WELCOME10' ? selectedItems.value.reduce((sum,item)=>sum + (Number(item.product?.sale_price||0)-Math.round(Number(item.product?.sale_price||0)*.9*100)/100)*item.quantity,0) : 0)
 const discountedSubtotal = computed(() => Number(selectedTotal.value) - promoDiscount.value)
-const grandTotal = computed(() => discountedSubtotal.value + Number(shippingTotal.value))
+const grandTotal = computed(() => authoritativeTotal.value ?? (discountedSubtotal.value + Number(shippingTotal.value)))
 const canPay = computed(() => Boolean(
   selectedAddressId.value
   && selectedItems.value.length
   && termsAccepted.value
   && !shippingLoading.value
+  && !shippingError.value
 ))
 
 const money = value => Number(value || 0).toFixed(2)
@@ -197,6 +201,7 @@ const loadShipping = async () => {
   if (!destinationCountry.value || !selectedItems.value.length) return
   shippingLoading.value = true
   shippingError.value = ''
+  authoritativeTotal.value = null
   try {
     const response = await getCartShippingEstimate(
       destinationCountry.value,
@@ -236,15 +241,17 @@ const placeOrder = async () => {
         items: selectedItems.value.map(item => ({ product_id: item.product_id, quantity: item.quantity })),
         address_id: selectedAddressId.value,
         payment_method: 'stripe',
-        shipping_method: 'Standard delivery',
-        shipping_price: shippingTotal.value,
         coupon_code: couponCode.value || undefined,
+        idempotency_key: checkoutAttemptKey.value,
       })
       createdOrderId.value = orderResponse.data.id
+      shippingTotal.value = Number(orderResponse.data.financials?.shipping_amount ?? orderResponse.data.shipping_price ?? 0)
+      authoritativeTotal.value = Number(orderResponse.data.total_amount)
       sessionStorage.setItem('pending_order_id', String(orderResponse.data.id))
       await fetchServer({ silent: true })
     }
     const paymentResponse = await createCheckoutSession(createdOrderId.value)
+    sessionStorage.removeItem('esh_checkout_idempotency_key')
     window.location.assign(paymentResponse.data.checkout_url)
   } catch (requestError) {
     error.value = requestError.response?.data?.detail || 'Could not start secure payment. Your pending order is saved in My Orders.'

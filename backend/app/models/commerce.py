@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Column, DateTime, DECIMAL, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
 from app.models import Base
@@ -78,3 +78,71 @@ class ProductShareLink(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     product = relationship("Product")
+
+
+class OrderRequestKey(Base):
+    """Maps one buyer checkout attempt to exactly one order."""
+    __tablename__ = "order_request_keys"
+    __table_args__ = (UniqueConstraint("buyer_id", "idempotency_key", name="uq_order_request_buyer_key"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    buyer_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    idempotency_key = Column(String(80), nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, unique=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class OrderReservation(Base):
+    """Tracks inventory reserved while a buyer completes payment."""
+    __tablename__ = "order_reservations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    status = Column(String(20), default="reserved", nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    released_at = Column(DateTime)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class OrderFinancialSnapshot(Base):
+    """Immutable server-side calculation used to charge and audit an order."""
+    __tablename__ = "order_financial_snapshots"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    subtotal = Column(DECIMAL(10, 2), nullable=False)
+    discount_amount = Column(DECIMAL(10, 2), default=0, nullable=False)
+    shipping_amount = Column(DECIMAL(10, 2), default=0, nullable=False)
+    tax_amount = Column(DECIMAL(10, 2), default=0, nullable=False)
+    total_amount = Column(DECIMAL(10, 2), nullable=False)
+    tax_rate = Column(DECIMAL(6, 4), default=0, nullable=False)
+    prices_include_tax = Column(Integer, default=1, nullable=False)
+    coupon_code = Column(String(50))
+    pricing_version = Column(String(30), default="server-v1", nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class PaymentWebhookEvent(Base):
+    """Stripe event ledger. A unique event id makes webhook retries harmless."""
+    __tablename__ = "payment_webhook_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    event_id = Column(String(255), nullable=False, unique=True, index=True)
+    event_type = Column(String(120), nullable=False)
+    processed_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class OrderNotification(Base):
+    """Delivery ledger for transactional email, unique per order lifecycle event."""
+    __tablename__ = "order_notifications"
+    __table_args__ = (UniqueConstraint("order_id", "event", name="uq_order_notification_event"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    event = Column(String(50), nullable=False)
+    recipient = Column(String(255), nullable=False)
+    status = Column(String(20), default="pending", nullable=False)
+    attempts = Column(Integer, default=0, nullable=False)
+    last_error = Column(Text)
+    sent_at = Column(DateTime)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)

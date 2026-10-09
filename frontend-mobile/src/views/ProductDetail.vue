@@ -285,6 +285,7 @@ import MobileProductCard from '../components/MobileProductCard.vue'
 import { useCart } from '../composables/useCart'
 import { useAuth } from '../composables/useAuth'
 import { useLocation } from '../composables/useLocation'
+import { applyProductSeo, resetProductSeo } from '../composables/useProductSeo'
 
 const route = useRoute()
 const router = useRouter()
@@ -496,7 +497,7 @@ const buyNow = async () => {
   }
 }
 
-onBeforeUnmount(() => window.clearTimeout(cartMessageTimer))
+onBeforeUnmount(() => { window.clearTimeout(cartMessageTimer); resetProductSeo() })
 
 const settleInBatches = async (tasks, batchSize = 2) => {
   const results = []
@@ -514,6 +515,7 @@ onMounted(async () => {
     const response = route.params.token ? await getSharedProduct(route.params.token) : await getProduct(route.params.slug)
     const data = route.params.token ? response.data.product : response.data
     product.value = data
+    applyProductSeo(data, window.location.href)
     if (route.params.token) {
       publicReference.value = response.data.public_reference
       shareLink.value = `${window.location.origin}${route.path}`

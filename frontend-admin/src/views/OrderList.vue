@@ -86,7 +86,7 @@
                   <el-dropdown-item v-if="row.status === 'pending'" command="paid">标记已付款</el-dropdown-item>
                   <el-dropdown-item v-if="row.status === 'pending'" command="cancelled">取消订单</el-dropdown-item>
                   <el-dropdown-item v-if="row.status === 'paid'" command="shipped">标记已发货</el-dropdown-item>
-                  <el-dropdown-item v-if="row.status === 'paid'" command="cancelled">取消订单</el-dropdown-item>
+                  <el-dropdown-item v-if="row.status === 'paid' && row.payment_status === 'paid'" command="refund">退款并取消</el-dropdown-item>
                   <el-dropdown-item v-if="row.status === 'shipped'" command="completed">标记已完成</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -213,7 +213,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '../api'
 
 const orders = ref([])
@@ -315,6 +315,14 @@ const viewOrder = async (order) => {
 
 const handleStatusChange = async (order, newStatus) => {
   try {
+    if (newStatus === 'refund') {
+      await ElMessageBox.confirm(`订单 ${order.order_number} 将通过 Stripe 全额退款并恢复库存。`, '确认退款', { type: 'warning', confirmButtonText: '确认退款', cancelButtonText: '取消' })
+      await api.post(`/admin/orders/${order.id}/refund`)
+      ElMessage.success('退款已提交，订单已取消')
+      loadOrders()
+      loadStats()
+      return
+    }
     await api.post(`/admin/orders/${order.id}/status`, { status: newStatus })
     ElMessage.success('状态更新成功')
     loadOrders()

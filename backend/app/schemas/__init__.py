@@ -64,6 +64,7 @@ from app.schemas.order import (
     OrderStatusUpdate,
     OrderItemOut,
     OrderStatusLogOut,
+    OrderFinancialOut,
     OrderOut,
     OrderListResponse,
     OrderStats,
@@ -146,6 +147,8 @@ from app.schemas.commerce import (
     ReviewsSummary,
     ReturnRequestCreate,
     ReturnRequestOut,
+    AdminReturnStatusUpdate,
+    AdminReturnOut,
 )
 
 __all__ = [
@@ -169,7 +172,7 @@ __all__ = [
     "ShippingCalculationRequest", "ShippingOptionResult", "CartShippingEstimate",
     # order
     "OrderItemCreate", "OrderCreate", "OrderUpdate", "OrderStatusUpdate",
-    "OrderItemOut", "OrderStatusLogOut", "OrderOut",
+    "OrderItemOut", "OrderStatusLogOut", "OrderFinancialOut", "OrderOut",
     "OrderListResponse", "OrderStats",
     # cart
     "CartItemCreate", "CartItemUpdate", "CartItemOut", "CartOut",
@@ -200,5 +203,5 @@ __all__ = [
     "GlobalShippingSettingsOut",
     # commerce
     "SavedProductOut", "ReviewCreate", "ReviewOut", "ReviewsSummary",
-    "ReturnRequestCreate", "ReturnRequestOut",
+    "ReturnRequestCreate", "ReturnRequestOut", "AdminReturnStatusUpdate", "AdminReturnOut",
 ]

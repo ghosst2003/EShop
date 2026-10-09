@@ -25,6 +25,10 @@
           <el-icon><ShoppingCart /></el-icon>
           <span>订单管理</span>
         </el-menu-item>
+        <el-menu-item index="/returns">
+          <el-icon><RefreshLeft /></el-icon>
+          <span>退货退款</span>
+        </el-menu-item>
         <el-menu-item index="/gdpr">
           <el-icon><Document /></el-icon>
           <span>GDPR 请求</span>
@@ -87,7 +91,7 @@
 
 <script setup>
 import { useRouter, useRoute } from 'vue-router'
-import { Goods, Menu, Document, ArrowDown, ShoppingCart, Timer, Picture, Van, Location, Flag, CreditCard, Setting, Grid } from '@element-plus/icons-vue'
+import { Goods, Menu, Document, ArrowDown, ShoppingCart, Timer, Picture, Van, Location, Flag, CreditCard, Setting, Grid, RefreshLeft } from '@element-plus/icons-vue'
 import { useAuthStore } from '../store/auth'
 
 const router = useRouter()

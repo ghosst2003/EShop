@@ -14,6 +14,7 @@ const routes = [
       { path: 'categories', name: 'Categories', component: () => import('../views/CategoryManagement.vue') },
       { path: 'countries', name: 'Countries', component: () => import('../views/CountryManagement.vue') },
       { path: 'orders', name: 'Orders', component: () => import('../views/OrderList.vue') },
+      { path: 'returns', name: 'Returns', component: () => import('../views/ReturnRequests.vue') },
       { path: 'gdpr', name: 'GdprRequests', component: () => import('../views/GdprRequests.vue') },
       { path: 'flash-deals', name: 'FlashDeals', component: () => import('../views/FlashDealsList.vue') },
       { path: 'flash-deals/new', name: 'FlashDealNew', component: () => import('../views/FlashDealForm.vue') },

@@ -115,6 +115,11 @@ export const updateOrder = (id, data) => api.put(`/admin/orders/${id}`, data)
 export const updateOrderStatus = (id, data) => api.post(`/admin/orders/${id}/status`, data)
 export const deleteOrder = (id) => api.delete(`/admin/orders/${id}`)
 
+// ---- Returns & Refunds ----
+export const getReturnRequests = (params) => api.get('/admin/returns', { params })
+export const updateReturnRequestStatus = (id, data) => api.post(`/admin/returns/${id}/status`, data)
+export const refundReturnRequest = (id) => api.post(`/admin/returns/${id}/refund`)
+
 // ---- Return Policies ----
 export const getGlobalReturnPolicy = () => api.get('/admin/shipping/return-policy')
 export const updateGlobalReturnPolicy = (data) => api.put('/admin/shipping/return-policy', data)

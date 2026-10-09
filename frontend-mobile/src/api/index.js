@@ -81,6 +81,7 @@ export const createCheckoutSession = (orderId) => api.post('/payments/create-che
 export const cancelOrder = (orderId) => api.post(`/orders/${orderId}/cancel`)
 export const reorderOrder = (orderId) => api.post(`/orders/${orderId}/reorder`)
 export const createReturnRequest = (orderId, data) => api.post(`/orders/${orderId}/return-requests`, data)
+export const getReturnRequest = (orderId) => api.get(`/orders/${orderId}/return-request`)
 
 // ---- Saved products & reviews ----
 export const getSavedProducts = () => api.get('/saved-products')

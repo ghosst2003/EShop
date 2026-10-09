@@ -1,15 +1,19 @@
 """支付路由 — Stripe Checkout 集成"""
 import os
+from datetime import datetime
 from decimal import Decimal
 
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import User, Order, OrderStatusLog
+from app.models import User, Order, OrderStatusLog, OrderReservation, PaymentWebhookEvent
 from app.schemas import CheckoutSessionCreate, CheckoutSessionResponse
+from app.services.email import send_order_notification
+from app.services.orders import capture_reservation, release_reservation
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
 
@@ -29,12 +33,19 @@ def create_checkout_session(
         raise HTTPException(status_code=500, detail="Stripe not configured")
 
     order = db.query(Order).options(
-        joinedload(Order.items)
+        joinedload(Order.items), joinedload(Order.financials), joinedload(Order.reservation)
     ).filter(Order.id == data.order_id, Order.buyer_id == user.id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     if order.status != "pending":
         raise HTTPException(status_code=400, detail="Order cannot be paid")
+    if not order.reservation or order.reservation.status != "reserved":
+        raise HTTPException(status_code=409, detail="Inventory reservation is no longer active")
+    if order.reservation.expires_at <= datetime.utcnow():
+        release_reservation(db, order, "Inventory reservation expired before payment")
+        db.commit()
+        send_order_notification(db, order, "payment_failed")
+        raise HTTPException(status_code=409, detail="Payment window expired. Please add the items to your cart again.")
 
     # 创建 Stripe Checkout Session
     line_items = []
@@ -61,6 +72,16 @@ def create_checkout_session(
             "quantity": 1,
         })
 
+    if order.financials and not order.financials.prices_include_tax and Decimal(str(order.financials.tax_amount)) > 0:
+        line_items.append({
+            "price_data": {
+                "currency": order.currency.lower(),
+                "product_data": {"name": "VAT"},
+                "unit_amount": int(Decimal(str(order.financials.tax_amount)) * 100),
+            },
+            "quantity": 1,
+        })
+
     if not line_items:
         line_items.append({
             "price_data": {
@@ -79,6 +100,7 @@ def create_checkout_session(
         cancel_url=f"{FRONTEND_URL}/my-orders/{order.id}",
         metadata={"order_id": order.id},
         payment_intent_data={"metadata": {"order_id": order.id}},
+        idempotency_key=f"becool-order-{order.id}-checkout-v1",
     )
 
     order.payment_intent_id = session.payment_intent or session.id
@@ -102,20 +124,34 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     except (ValueError, stripe.error.SignatureVerificationError) as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    event_id = event.get("id")
+    if not event_id:
+        raise HTTPException(status_code=400, detail="Stripe event has no id")
+    if db.query(PaymentWebhookEvent).filter(PaymentWebhookEvent.event_id == event_id).first():
+        return {"received": True, "duplicate": True}
+    db.add(PaymentWebhookEvent(event_id=event_id, event_type=event["type"]))
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        return {"received": True, "duplicate": True}
+
+    notification = None
+
     # 处理支付成功事件
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         order_id = session.get("metadata", {}).get("order_id")
 
         if order_id:
-            order = db.query(Order).filter(Order.id == int(order_id)).first()
+            order = db.query(Order).options(joinedload(Order.items)).filter(Order.id == int(order_id)).first()
             if order and order.status == "pending":
-                from datetime import datetime
                 old_status = order.status
                 order.status = "paid"
                 order.payment_status = "paid"
-                order.paid_at = datetime.now()
+                order.paid_at = datetime.utcnow()
                 order.payment_reference = session.get("payment_intent")
+                capture_reservation(db, order)
 
                 log = OrderStatusLog(
                     order_id=order.id,
@@ -124,21 +160,19 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                     note="Stripe 支付成功",
                 )
                 db.add(log)
-                db.commit()
+                notification = (order, "payment_received")
 
-    elif event["type"] in ("checkout.session.expired", "payment_intent.payment_failed"):
+    elif event["type"] in ("checkout.session.expired", "checkout.session.async_payment_failed", "payment_intent.payment_failed"):
         payment_object = event["data"]["object"]
         order_id = payment_object.get("metadata", {}).get("order_id")
         if order_id:
-            order = db.query(Order).filter(Order.id == int(order_id)).first()
+            order = db.query(Order).options(joinedload(Order.items)).filter(Order.id == int(order_id)).first()
             if order and order.status == "pending":
-                order.payment_status = "failed"
-                db.add(OrderStatusLog(
-                    order_id=order.id,
-                    from_status="pending",
-                    to_status="pending",
-                    note="Payment was not completed; the buyer can retry.",
-                ))
-                db.commit()
+                release_reservation(db, order, "Payment was not completed; reserved inventory was released")
+                notification = (order, "payment_failed")
+
+    db.commit()
+    if notification:
+        send_order_notification(db, notification[0], notification[1])
 
     return {"received": True}

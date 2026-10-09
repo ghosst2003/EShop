@@ -1,4 +1,5 @@
 """订单管理 - 后台 API"""
+import os
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -6,15 +7,20 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, desc
-from sqlalchemy.orm import Session
+import stripe
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Order, OrderItem, OrderStatusLog, User, Product
+from app.models import Order, OrderItem, OrderStatusLog, User, Product, OrderReservation
 from app.schemas import (
     OrderCreate, OrderUpdate, OrderStatusUpdate,
     OrderOut, OrderListResponse, OrderStats,
 )
 from app.dependencies import get_current_admin
+from app.services.email import send_order_notification
+from app.services.orders import capture_reservation, release_reservation, restore_order_stock
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
 
 router = APIRouter()
 
@@ -213,7 +219,7 @@ def update_order_status(
 
     valid_transitions = {
         "pending": ["paid", "cancelled"],
-        "paid": ["shipped", "cancelled"],
+        "paid": ["shipped"],
         "shipped": ["completed"],
     }
 
@@ -227,12 +233,23 @@ def update_order_status(
         )
 
     old_status = order.status
+    if data.status == "cancelled" and order.status == "pending":
+        if not release_reservation(db, order, data.note or "Cancelled by administrator", admin.id):
+            order.status = "cancelled"
+            order.payment_status = "failed"
+            db.add(OrderStatusLog(order_id=order.id, from_status="pending", to_status="cancelled", note=data.note or "Cancelled by administrator", operator_id=admin.id))
+        db.commit()
+        db.refresh(order)
+        send_order_notification(db, order, "order_cancelled")
+        return OrderOut.model_validate(order)
     order.status = data.status
 
     # 更新时间戳
     now = datetime.now()
     if data.status == "paid":
         order.paid_at = now
+        order.payment_status = "paid"
+        capture_reservation(db, order)
     elif data.status == "shipped":
         order.shipped_at = now
     elif data.status == "completed":
@@ -250,6 +267,60 @@ def update_order_status(
 
     db.commit()
     db.refresh(order)
+    notification_events = {
+        "paid": "payment_received",
+        "shipped": "order_shipped",
+        "completed": "order_completed",
+        "cancelled": "order_cancelled",
+    }
+    if data.status in notification_events:
+        send_order_notification(db, order, notification_events[data.status])
+    return OrderOut.model_validate(order)
+
+
+@router.post("/{order_id}/refund", response_model=OrderOut)
+def refund_unshipped_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Full refund for a paid order that has not shipped yet."""
+    if not stripe.api_key:
+        raise HTTPException(status_code=503, detail="Stripe 未配置")
+    order = db.query(Order).options(joinedload(Order.items)).filter(Order.id == order_id).with_for_update().first()
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+    if order.payment_status == "refunded":
+        return OrderOut.model_validate(order)
+    if order.status != "paid" or order.payment_status != "paid":
+        raise HTTPException(status_code=400, detail="只有已付款且未发货的订单可在此直接退款")
+    if not order.payment_reference or not order.payment_reference.startswith("pi_"):
+        raise HTTPException(status_code=409, detail="缺少 Stripe 支付参考号")
+
+    refund = stripe.Refund.create(
+        payment_intent=order.payment_reference,
+        metadata={"order_id": order.id, "reason": "admin_cancel_before_shipping"},
+        idempotency_key=f"becool-order-{order.id}-full-refund-v1",
+    )
+    if refund.status not in ("succeeded", "pending"):
+        raise HTTPException(status_code=502, detail="Stripe 未接受退款")
+    restore_order_stock(db, order)
+    reservation = db.query(OrderReservation).filter(OrderReservation.order_id == order.id).first()
+    if reservation:
+        reservation.status = "returned"
+        reservation.released_at = datetime.utcnow()
+    order.payment_status = "refunded"
+    order.status = "cancelled"
+    db.add(OrderStatusLog(
+        order_id=order.id,
+        from_status="paid",
+        to_status="cancelled",
+        note=f"管理员在发货前全额退款 ({refund.id})，库存已恢复",
+        operator_id=admin.id,
+    ))
+    db.commit()
+    db.refresh(order)
+    send_order_notification(db, order, "refund_completed")
     return OrderOut.model_validate(order)
 
 

@@ -1,19 +1,25 @@
 """买家订单路由 — 买家自主下单、查看自己的订单"""
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, desc
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
+from app.config import settings
 from app.dependencies import get_current_user
 from app.models import (
     User, Order, OrderItem, OrderStatusLog,
-    Cart, CartItem, Product, Address, ReturnRequest,
+    Cart, CartItem, Product, Address, ReturnRequest, OrderRequestKey,
+    OrderReservation, OrderFinancialSnapshot,
 )
+from app.services.email import send_order_notification
+from app.services.orders import calculate_tax, money, release_reservation, tax_rate_for
+from app.services.shipping import quote_cart_shipping
 from app.schemas import (
     BuyerOrderCreate, BuyerOrderOut, BuyerOrderListResponse,
     OrderOut, AddressOut, ReturnRequestCreate, ReturnRequestOut,
@@ -38,6 +44,15 @@ def create_order(
     if user.role != "buyer":
         raise HTTPException(status_code=403, detail="Only buyers can create orders")
 
+    existing_key = db.query(OrderRequestKey).filter(
+        OrderRequestKey.buyer_id == user.id,
+        OrderRequestKey.idempotency_key == data.idempotency_key,
+    ).first()
+    if existing_key:
+        existing_order = db.query(Order).filter(Order.id == existing_key.order_id).first()
+        if existing_order:
+            return OrderOut.model_validate(existing_order)
+
     # 获取购物车
     cart = db.query(Cart).options(
         joinedload(Cart.items).joinedload(CartItem.product)
@@ -53,6 +68,7 @@ def create_order(
         if not data.items:
             raise HTTPException(status_code=400, detail="Select at least one cart item")
         selected_product_ids = {item.product_id for item in data.items}
+        submitted_quantities = {item.product_id: item.quantity for item in data.items}
         cart_product_ids = {item.product_id for item in cart.items}
         missing_product_ids = selected_product_ids - cart_product_ids
         if missing_product_ids:
@@ -61,8 +77,12 @@ def create_order(
             item for item in cart.items
             if item.product_id in selected_product_ids
         ]
+        for cart_item in order_cart_items:
+            if submitted_quantities[cart_item.product_id] != cart_item.quantity:
+                raise HTTPException(status_code=409, detail="Cart changed. Review quantities before paying.")
 
     # 确定收货地址
+    shipping_country = None
     if data.address_id:
         address = db.query(Address).filter(
             Address.id == data.address_id, Address.buyer_id == user.id
@@ -73,11 +93,13 @@ def create_order(
         buyer_email = user.email
         buyer_phone = address.phone
         buyer_address = f"{address.street_address}, {address.city}, {address.postal_code}, {address.country}"
+        shipping_country = address.country.strip().upper()
     elif data.buyer_name and data.buyer_address:
         buyer_name = data.buyer_name
         buyer_email = data.buyer_email or user.email
         buyer_phone = data.buyer_phone
         buyer_address = data.buyer_address
+        shipping_country = data.buyer_address.split(",")[-1].strip().upper()[:2]
     else:
         # 使用默认地址
         address = db.query(Address).filter(
@@ -89,27 +111,35 @@ def create_order(
         buyer_email = user.email
         buyer_phone = address.phone
         buyer_address = f"{address.street_address}, {address.city}, {address.postal_code}, {address.country}"
+        shipping_country = address.country.strip().upper()
 
     # 验证商品并计算总金额
-    total_amount = Decimal("0")
+    subtotal_amount = Decimal("0")
+    discounted_subtotal = Decimal("0")
     order_items = []
     coupon_code = (data.coupon_code or "").strip().upper()
     if coupon_code and coupon_code != "WELCOME10":
         raise HTTPException(status_code=400, detail="This promotion code is not valid")
     discount_rate = Decimal("0.10") if coupon_code == "WELCOME10" else Decimal("0")
 
+    product_ids = [ci.product_id for ci in order_cart_items]
+    locked_products = db.query(Product).filter(Product.id.in_(product_ids)).with_for_update().all()
+    products_by_id = {product.id: product for product in locked_products}
+
     for ci in order_cart_items:
-        product = ci.product
+        product = products_by_id.get(ci.product_id)
         if not product or product.status != "active":
             raise HTTPException(status_code=400, detail=f"Product '{ci.product_title if ci.product_id else 'unknown'}' is not available")
         if product.auto_manage_stock and product.stock_quantity < ci.quantity:
             raise HTTPException(status_code=400, detail=f"Insufficient stock for '{product.title}'")
 
-        unit_price = Decimal(str(product.sale_price))
+        original_unit_price = money(product.sale_price)
+        subtotal_amount += original_unit_price * ci.quantity
+        unit_price = original_unit_price
         if discount_rate:
             unit_price = (unit_price * (Decimal("1") - discount_rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         subtotal = unit_price * ci.quantity
-        total_amount += subtotal
+        discounted_subtotal += subtotal
         order_items.append({
             "product_id": product.id,
             "product_title": product.title,
@@ -119,18 +149,14 @@ def create_order(
             "subtotal": subtotal,
         })
 
-    # 运费
-    shipping_price = Decimal(str(data.shipping_price)) if data.shipping_price else Decimal("0")
-    shipping_country = None
-    if data.shipping_method:
-        # 从地址中提取国家代码
-        if data.address_id:
-            addr = db.query(Address).filter(Address.id == data.address_id).first()
-            if addr:
-                shipping_country = addr.country[:2].upper()
-        elif data.buyer_address:
-            parts = data.buyer_address.split(", ")
-            shipping_country = parts[-1][:2].upper() if parts else None
+    # Price, shipping, promotions, and tax are all authoritative on the server.
+    shipping_quote = quote_cart_shipping(db, order_cart_items, shipping_country)
+    if not shipping_quote.configured:
+        raise HTTPException(status_code=400, detail="Delivery is not configured for one or more items at this address")
+    shipping_price = shipping_quote.total
+    tax_rate = tax_rate_for(shipping_country)
+    tax_amount, total_amount = calculate_tax(discounted_subtotal + shipping_price, tax_rate)
+    discount_amount = money(subtotal_amount - discounted_subtotal)
 
     # 创建订单
     order_number = generate_order_number()
@@ -141,12 +167,12 @@ def create_order(
         buyer_email=buyer_email,
         buyer_phone=buyer_phone,
         buyer_address=buyer_address,
-        total_amount=total_amount + shipping_price,
+        total_amount=total_amount,
         currency="EUR",
         status="pending",
         payment_method=data.payment_method,
-        shipping_method=data.shipping_method,
-        shipping_price=shipping_price if shipping_price > 0 else None,
+        shipping_method=shipping_quote.method,
+        shipping_price=shipping_price,
         shipping_country=shipping_country,
         notes=(f"Promotion {coupon_code} applied. " if coupon_code else "") + (data.notes or ""),
         created_by=user.id,
@@ -154,6 +180,27 @@ def create_order(
     )
     db.add(order)
     db.flush()
+    db.add(OrderRequestKey(
+        buyer_id=user.id,
+        idempotency_key=data.idempotency_key,
+        order_id=order.id,
+    ))
+    db.add(OrderReservation(
+        order_id=order.id,
+        status="reserved",
+        expires_at=datetime.utcnow() + timedelta(minutes=settings.stock_reservation_minutes),
+    ))
+    db.add(OrderFinancialSnapshot(
+        order_id=order.id,
+        subtotal=money(subtotal_amount),
+        discount_amount=discount_amount,
+        shipping_amount=shipping_price,
+        tax_amount=tax_amount,
+        total_amount=total_amount,
+        tax_rate=tax_rate,
+        prices_include_tax=1 if settings.prices_include_tax else 0,
+        coupon_code=coupon_code or None,
+    ))
 
     # 创建订单明细 & 扣减库存
     for oi_data in order_items:
@@ -169,7 +216,7 @@ def create_order(
         db.add(item)
 
         # 扣减库存
-        product = db.query(Product).filter(Product.id == oi_data["product_id"]).first()
+        product = products_by_id.get(oi_data["product_id"])
         if product and product.auto_manage_stock:
             product.stock_quantity -= oi_data["quantity"]
             if product.stock_quantity <= 0:
@@ -193,8 +240,19 @@ def create_order(
         )
     cart_items_to_delete.delete(synchronize_session=False)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing_key = db.query(OrderRequestKey).filter(
+            OrderRequestKey.buyer_id == user.id,
+            OrderRequestKey.idempotency_key == data.idempotency_key,
+        ).first()
+        if existing_key:
+            return OrderOut.model_validate(db.query(Order).filter(Order.id == existing_key.order_id).first())
+        raise
     db.refresh(order)
+    send_order_notification(db, order, "order_created")
 
     return OrderOut.model_validate(order)
 
@@ -269,24 +327,20 @@ def cancel_order(
     if order.status != "pending" or order.payment_status == "paid":
         raise HTTPException(status_code=400, detail="This order can no longer be cancelled online")
 
-    for item in order.items:
-        if item.product_id:
-            product = db.query(Product).filter(Product.id == item.product_id).first()
-            if product and product.auto_manage_stock:
-                product.stock_quantity += item.quantity
-                if product.status == "sold":
-                    product.status = "active"
-
-    order.status = "cancelled"
-    db.add(OrderStatusLog(
-        order_id=order.id,
-        from_status="pending",
-        to_status="cancelled",
-        note="Cancelled by buyer",
-        operator_id=user.id,
-    ))
+    if not release_reservation(db, order, "Cancelled by buyer", user.id):
+        for item in order.items:
+            if item.product_id:
+                product = db.query(Product).filter(Product.id == item.product_id).with_for_update().first()
+                if product and product.auto_manage_stock:
+                    product.stock_quantity += item.quantity
+                    if product.status == "sold":
+                        product.status = "active"
+        order.status = "cancelled"
+        order.payment_status = "failed"
+        db.add(OrderStatusLog(order_id=order.id, from_status="pending", to_status="cancelled", note="Cancelled by buyer", operator_id=user.id))
     db.commit()
     db.refresh(order)
+    send_order_notification(db, order, "order_cancelled")
     return OrderOut.model_validate(order)
 
 
@@ -365,4 +419,20 @@ def request_return(
     db.add(request)
     db.commit()
     db.refresh(request)
+    send_order_notification(db, order, "return_requested")
+    return request
+
+
+@router.get("/{order_id}/return-request", response_model=ReturnRequestOut)
+def get_return_request(
+    order_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    request = db.query(ReturnRequest).filter(
+        ReturnRequest.order_id == order_id,
+        ReturnRequest.buyer_id == user.id,
+    ).order_by(ReturnRequest.created_at.desc()).first()
+    if not request:
+        raise HTTPException(status_code=404, detail="No return request found")
     return request

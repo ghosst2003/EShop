@@ -49,6 +49,8 @@ class Order(Base):
     status_logs = relationship("OrderStatusLog", back_populates="order", cascade="all, delete-orphan")
     creator = relationship("User", foreign_keys=[created_by])
     buyer = relationship("User", foreign_keys=[buyer_id])
+    reservation = relationship("OrderReservation", uselist=False, cascade="all, delete-orphan")
+    financials = relationship("OrderFinancialSnapshot", uselist=False, cascade="all, delete-orphan")
 
 
 class OrderItem(Base):
@@ -70,7 +72,7 @@ class OrderItem(Base):
 class OrderStatusLog(Base):
     __tablename__ = "order_status_logs"
 
-    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True, autoincrement=True)
     order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
     from_status = Column(String(50))  # 原状态
     to_status = Column(String(50), nullable=False)  # 新状态

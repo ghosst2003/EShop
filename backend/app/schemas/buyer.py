@@ -26,9 +26,9 @@ class BuyerOrderCreate(BaseModel):
     buyer_address: Optional[str] = None
     payment_method: str = "stripe"
     shipping_method: Optional[str] = None
-    shipping_price: Optional[float] = None
     coupon_code: Optional[str] = None
     notes: Optional[str] = None
+    idempotency_key: str = Field(min_length=16, max_length=80)
 
 
 class BuyerOrderOut(BaseModel):

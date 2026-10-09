@@ -15,6 +15,7 @@ from app.models import (
 from app.schemas import (
     ShippingOptionResult, ShippingCalculationRequest, CartShippingEstimate,
 )
+from app.services.shipping import quote_cart_shipping
 
 router = APIRouter()
 
@@ -298,8 +299,6 @@ def get_cart_shipping_estimate(
 
     country_code = country.upper()
     subtotal = Decimal("0")
-    shipping_total = Decimal("0")
-    items_result = []
 
     selected_ids = None
     if product_ids:
@@ -316,63 +315,17 @@ def get_cart_shipping_estimate(
         raise HTTPException(status_code=400, detail="No selected cart items found")
 
     for ci in selected_items:
-        product = ci.product
-        if not product:
-            continue
-        subtotal += Decimal(str(product.sale_price)) * ci.quantity
-
-        origin_code = product.origin_country_code
-        total = Decimal("0")
-
-        # 优先：使用 ShippingOriginRule
-        if origin_code:
-            rule = (
-                db.query(ShippingOriginRule)
-                .join(ShippingMethod)
-                .filter(
-                    ShippingOriginRule.origin_country_code == origin_code,
-                    ShippingOriginRule.destination_country_code == country_code,
-                    ShippingOriginRule.is_active == 1,
-                    ShippingMethod.is_active == 1,
-                )
-                .order_by(ShippingOriginRule.fee)
-                .first()
-            )
-            if rule:
-                total = Decimal(str(rule.fee)) * ci.quantity
-
-        # 回退：ShippingMethodCountry
-        if not total:
-            method_countries = (
-                db.query(ShippingMethodCountry)
-                .join(ShippingMethod)
-                .filter(
-                    ShippingMethodCountry.country_code == country_code,
-                    ShippingMethod.is_active == 1,
-                )
-                .options(joinedload(ShippingMethodCountry.method))
-                .order_by(ShippingMethodCountry.is_default.desc(), ShippingMethodCountry.base_fee)
-                .limit(1)
-                .all()
-            )
-
-            if method_countries:
-                mc = method_countries[0]
-                weight = Decimal(str(product.weight_kg or 0.5)) * ci.quantity
-                _, _, _, total = _calculate_shipping_cost(weight, mc)
-
-        shipping_total += total
-        items_result.append({
-            "product_title": product.title_en or product.title,
-            "quantity": ci.quantity,
-            "shipping_cost": str(total),
-        })
+        if ci.product:
+            subtotal += Decimal(str(ci.product.sale_price)) * ci.quantity
+    quote = quote_cart_shipping(db, selected_items, country_code)
+    if not quote.configured:
+        raise HTTPException(status_code=400, detail="Delivery is not configured for one or more selected items")
 
     return CartShippingEstimate(
         country_code=country_code,
-        items=items_result,
-        shipping_total=shipping_total,
-        grand_total=subtotal + shipping_total,
+        items=quote.items,
+        shipping_total=quote.total,
+        grand_total=subtotal + quote.total,
     )
 
 
