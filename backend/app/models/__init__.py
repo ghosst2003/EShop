@@ -30,6 +30,7 @@ from app.models.commerce import (
     EmailVerificationToken, ProductShareLink, OrderRequestKey,
     OrderReservation, OrderFinancialSnapshot, PaymentWebhookEvent,
     OrderNotification,
+    ReviewModeration, Promotion, PromotionRedemption, OrderShipment, CommerceEvent,
 )
 
 # Create tables

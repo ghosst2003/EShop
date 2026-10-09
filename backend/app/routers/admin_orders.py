@@ -6,12 +6,13 @@ from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, HttpUrl
 from sqlalchemy import func, desc
 import stripe
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Order, OrderItem, OrderStatusLog, User, Product, OrderReservation
+from app.models import Order, OrderItem, OrderStatusLog, User, Product, OrderReservation, OrderShipment
 from app.schemas import (
     OrderCreate, OrderUpdate, OrderStatusUpdate,
     OrderOut, OrderListResponse, OrderStats,
@@ -23,6 +24,13 @@ from app.services.orders import capture_reservation, release_reservation, restor
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
 
 router = APIRouter()
+
+
+class ShipmentInput(BaseModel):
+    carrier: str
+    tracking_number: str
+    tracking_url: Optional[HttpUrl] = None
+    estimated_delivery_at: Optional[datetime] = None
 
 
 def generate_order_number() -> str:
@@ -202,6 +210,39 @@ def update_order(
 
     db.commit()
     db.refresh(order)
+    return OrderOut.model_validate(order)
+
+
+@router.put("/{order_id}/shipment", response_model=OrderOut)
+def upsert_shipment(
+    order_id: int,
+    data: ShipmentInput,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+    carrier = data.carrier.strip()
+    number = data.tracking_number.strip()
+    if not carrier or not number:
+        raise HTTPException(status_code=400, detail="请填写承运商和物流单号")
+    shipment = db.query(OrderShipment).filter(OrderShipment.order_id == order.id).first()
+    values = {
+        "carrier": carrier,
+        "tracking_number": number,
+        "tracking_url": str(data.tracking_url) if data.tracking_url else None,
+        "estimated_delivery_at": data.estimated_delivery_at,
+    }
+    if shipment:
+        for key, value in values.items(): setattr(shipment, key, value)
+    else:
+        shipment = OrderShipment(order_id=order.id, **values)
+        db.add(shipment)
+    order.tracking_number = number
+    order.shipping_method = carrier
+    db.add(OrderStatusLog(order_id=order.id, from_status=order.status, to_status=order.status, note=f"物流信息已更新：{carrier} {number}", operator_id=admin.id))
+    db.commit(); db.refresh(order)
     return OrderOut.model_validate(order)
 
 

@@ -1,24 +1,29 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import Order, OrderItem, Product, ProductReview, User, WishlistItem
+from app.models import Order, OrderItem, Product, ProductReview, ReviewModeration, User, WishlistItem
 from app.schemas import ReviewCreate, ReviewOut, ReviewsSummary, SavedProductOut
+from app.services.promotions import get_valid_promotion, promotion_discount
 
 router = APIRouter()
 
 
 @router.get("/promotions/{code}")
-def validate_promotion(code: str):
-    if code.strip().upper() != "WELCOME10":
+def validate_promotion(code: str, subtotal: float = Query(0, ge=0), db: Session = Depends(get_db)):
+    promotion = get_valid_promotion(db, code, subtotal)
+    if not promotion:
         raise HTTPException(status_code=404, detail="This promotion code is not valid")
     return {
-        "code": "WELCOME10",
-        "label": "Welcome offer",
-        "discount_type": "percent",
-        "discount_value": 10,
+        "code": promotion.code,
+        "label": promotion.label,
+        "discount_type": promotion.discount_type,
+        "discount_value": promotion.discount_value,
+        "minimum_subtotal": promotion.minimum_subtotal,
+        "maximum_discount": promotion.maximum_discount,
+        "discount_amount": promotion_discount(promotion, subtotal),
     }
 
 
@@ -85,6 +90,8 @@ def list_product_reviews(product_id: int, db: Session = Depends(get_db)):
         .order_by(ProductReview.created_at.desc())
         .all()
     )
+    moderation = {row.review_id: row for row in db.query(ReviewModeration).filter(ReviewModeration.review_id.in_([item.id for item in rows])).all()} if rows else {}
+    rows = [row for row in rows if row.id not in moderation or moderation[row.id].status == "approved"]
     distribution = {rating: 0 for rating in range(1, 6)}
     for row in rows:
         distribution[row.rating] += 1
@@ -102,6 +109,7 @@ def list_product_reviews(product_id: int, db: Session = Depends(get_db)):
                 reviewer_name=row.buyer.display_name or row.buyer.username,
                 verified_purchase=bool(row.verified_purchase),
                 created_at=row.created_at,
+                merchant_reply=moderation.get(row.id).merchant_reply if moderation.get(row.id) else None,
             )
             for row in rows
         ],
@@ -149,6 +157,15 @@ def submit_product_review(
         db.add(row)
     db.commit()
     db.refresh(row)
+    moderation = db.query(ReviewModeration).filter(ReviewModeration.review_id == row.id).first()
+    if moderation:
+        moderation.status = "pending"
+        moderation.merchant_reply = None
+        moderation.moderated_by = None
+        moderation.moderated_at = None
+    else:
+        db.add(ReviewModeration(review_id=row.id, status="pending"))
+    db.commit()
     return ReviewOut(
         id=row.id,
         rating=row.rating,

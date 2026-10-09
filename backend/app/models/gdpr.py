@@ -6,7 +6,7 @@ from app.models import Base
 class GdprConsentLog(Base):
     __tablename__ = "gdpr_consent_logs"
 
-    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True, autoincrement=True)
     session_id = Column(String(128), nullable=False)
     consent_type = Column(Enum("cookie", "newsletter", "data_processing"), nullable=False)
     consent_given = Column(Integer, nullable=False)
@@ -18,7 +18,7 @@ class GdprConsentLog(Base):
 class DataDeletionRequest(Base):
     __tablename__ = "data_deletion_requests"
 
-    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True, autoincrement=True)
     email = Column(String(255), nullable=False)
     request_type = Column(Enum("data_export", "data_deletion", "rectification"), nullable=False)
     details = Column(Text)

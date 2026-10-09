@@ -143,6 +143,10 @@ def list_products(
         q = q.order_by(Product.sale_price.asc())
     elif sort == "price_desc":
         q = q.order_by(Product.sale_price.desc())
+    elif sort == "popular":
+        q = q.order_by(Product.views_count.desc(), Product.created_at.desc())
+    elif sort == "discount":
+        q = q.order_by((func.coalesce(Product.original_price, Product.sale_price) - Product.sale_price).desc(), Product.created_at.desc())
     else:
         q = q.order_by(Product.created_at.desc(), Product.id.desc())
 
@@ -200,10 +204,30 @@ def search_products(
         query = query.order_by(Product.sale_price.asc())
     elif sort == "price_desc":
         query = query.order_by(Product.sale_price.desc())
+    elif sort == "popular":
+        query = query.order_by(Product.views_count.desc(), Product.created_at.desc())
+    elif sort == "discount":
+        query = query.order_by((func.coalesce(Product.original_price, Product.sale_price) - Product.sale_price).desc(), Product.created_at.desc())
     else:
         query = query.order_by(Product.created_at.desc(), Product.id.desc())
     results = query.options(joinedload(Product.images)).offset((page - 1) * page_size).limit(page_size).all()
     return ProductListResponse(items=results, total=total, page=page, page_size=page_size)
+
+
+@router.get("/suggestions")
+def product_suggestions(q: str = Query("", max_length=80), limit: int = Query(8, ge=1, le=12), db: Session = Depends(get_db)):
+    query = db.query(Product).filter(Product.status == "active")
+    if q.strip():
+        term = f"%{q.strip()}%"
+        query = query.filter(or_(Product.title_en.ilike(term), Product.title.ilike(term), Product.brand.ilike(term)))
+    rows = query.order_by(Product.views_count.desc(), Product.created_at.desc()).limit(limit).all()
+    seen, values = set(), []
+    for product in rows:
+        value = product.title_en or product.title
+        if value and value.lower() not in seen:
+            seen.add(value.lower())
+            values.append({"label": value, "slug": product.slug, "brand": product.brand})
+    return values
 
 
 @router.get("/id/{product_id}", response_model=PublicProductOut)

@@ -1,10 +1,11 @@
 """买家订单路由 — 买家自主下单、查看自己的订单"""
 import uuid
 from datetime import datetime, timedelta
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import HTMLResponse
 from sqlalchemy import func, desc
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
@@ -16,10 +17,12 @@ from app.models import (
     User, Order, OrderItem, OrderStatusLog,
     Cart, CartItem, Product, Address, ReturnRequest, OrderRequestKey,
     OrderReservation, OrderFinancialSnapshot,
+    PromotionRedemption,
 )
 from app.services.email import send_order_notification
 from app.services.orders import calculate_tax, money, release_reservation, tax_rate_for
 from app.services.shipping import quote_cart_shipping
+from app.services.promotions import get_valid_promotion, promotion_discount
 from app.schemas import (
     BuyerOrderCreate, BuyerOrderOut, BuyerOrderListResponse,
     OrderOut, AddressOut, ReturnRequestCreate, ReturnRequestOut,
@@ -115,12 +118,8 @@ def create_order(
 
     # 验证商品并计算总金额
     subtotal_amount = Decimal("0")
-    discounted_subtotal = Decimal("0")
     order_items = []
     coupon_code = (data.coupon_code or "").strip().upper()
-    if coupon_code and coupon_code != "WELCOME10":
-        raise HTTPException(status_code=400, detail="This promotion code is not valid")
-    discount_rate = Decimal("0.10") if coupon_code == "WELCOME10" else Decimal("0")
 
     product_ids = [ci.product_id for ci in order_cart_items]
     locked_products = db.query(Product).filter(Product.id.in_(product_ids)).with_for_update().all()
@@ -136,10 +135,7 @@ def create_order(
         original_unit_price = money(product.sale_price)
         subtotal_amount += original_unit_price * ci.quantity
         unit_price = original_unit_price
-        if discount_rate:
-            unit_price = (unit_price * (Decimal("1") - discount_rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         subtotal = unit_price * ci.quantity
-        discounted_subtotal += subtotal
         order_items.append({
             "product_id": product.id,
             "product_title": product.title,
@@ -149,6 +145,15 @@ def create_order(
             "subtotal": subtotal,
         })
 
+    promotion = None
+    discount_amount = Decimal("0.00")
+    if coupon_code:
+        promotion = get_valid_promotion(db, coupon_code, subtotal_amount, user.id)
+        if not promotion:
+            raise HTTPException(status_code=400, detail="This promotion code is not valid")
+        discount_amount = promotion_discount(promotion, subtotal_amount)
+    discounted_subtotal = money(subtotal_amount - discount_amount)
+
     # Price, shipping, promotions, and tax are all authoritative on the server.
     shipping_quote = quote_cart_shipping(db, order_cart_items, shipping_country)
     if not shipping_quote.configured:
@@ -156,7 +161,6 @@ def create_order(
     shipping_price = shipping_quote.total
     tax_rate = tax_rate_for(shipping_country)
     tax_amount, total_amount = calculate_tax(discounted_subtotal + shipping_price, tax_rate)
-    discount_amount = money(subtotal_amount - discounted_subtotal)
 
     # 创建订单
     order_number = generate_order_number()
@@ -201,6 +205,13 @@ def create_order(
         prices_include_tax=1 if settings.prices_include_tax else 0,
         coupon_code=coupon_code or None,
     ))
+    if promotion:
+        db.add(PromotionRedemption(
+            promotion_id=promotion.id,
+            order_id=order.id,
+            buyer_id=user.id,
+            discount_amount=discount_amount,
+        ))
 
     # 创建订单明细 & 扣减库存
     for oi_data in order_items:
@@ -308,6 +319,16 @@ def get_order(
         raise HTTPException(status_code=404, detail="Order not found")
 
     return OrderOut.model_validate(order)
+
+
+@router.get("/{order_id}/receipt", response_class=HTMLResponse)
+def download_receipt(order_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    order = db.query(Order).options(joinedload(Order.items)).filter(Order.id == order_id, Order.buyer_id == user.id).first()
+    if not order: raise HTTPException(status_code=404, detail="Order not found")
+    from html import escape
+    lines = "".join(f"<tr><td>{escape(item.product_title_en or item.product_title)}</td><td>{item.quantity}</td><td>€{item.subtotal}</td></tr>" for item in order.items)
+    body = f"""<!doctype html><html><head><meta charset='utf-8'><title>Receipt {escape(order.order_number)}</title><style>body{{font:15px Arial;max-width:720px;margin:40px auto;color:#173f34}}h1{{font-family:Georgia}}table{{width:100%;border-collapse:collapse}}td,th{{padding:10px;border-bottom:1px solid #ddd;text-align:left}}.total{{font-size:22px;text-align:right}}</style></head><body><h1>BeCool Market receipt</h1><p><strong>{escape(order.order_number)}</strong><br>{order.created_at:%d %B %Y}</p><p>{escape(order.buyer_name)}<br>{escape(order.buyer_address)}</p><table><thead><tr><th>Item</th><th>Qty</th><th>Total</th></tr></thead><tbody>{lines}</tbody></table><p class='total'>Total: <strong>€{order.total_amount}</strong></p><p>Payment status: {escape(order.payment_status)}</p></body></html>"""
+    return HTMLResponse(body, headers={"Content-Disposition": f'attachment; filename="{order.order_number}-receipt.html"'})
 
 
 @router.post("/{order_id}/cancel", response_model=OrderOut)

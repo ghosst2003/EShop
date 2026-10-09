@@ -35,6 +35,7 @@ export const createProductShareLink = (slug) => api.post(`/products/${slug}/shar
 export const getSharedProduct = (token) => api.get(`/products/shared/${encodeURIComponent(token)}`)
 export const getCategories = () => api.get('/categories')
 export const searchProducts = (params) => api.get('/products/search', { params })
+export const getSearchSuggestions = (q) => api.get('/products/suggestions', { params: { q } })
 export const getShippingOptions = (productSlug, country) => api.get(`/products/${productSlug}/shipping-options`, { params: { country } })
 export const getShippingTable = (productSlug) => api.get(`/shipping/products/${productSlug}/shipping-table`)
 export const getShippingNotes = (productSlug) => api.get(`/products/${productSlug}/shipping-notes`)
@@ -48,6 +49,7 @@ export const getCartShippingEstimate = (country, productIds = []) => api.get('/s
 export const getCountries = () => api.get('/shipping/countries')
 export const recordConsent = (data) => api.post('/gdpr/consent', data)
 export const submitDataRequest = (data) => api.post('/gdpr/data-request', data)
+export const recordCommerceEvent = (data) => api.post('/analytics/events', data)
 
 // ---- Auth ----
 export const loginApi = (username, password) => api.post('/auth/login', { username, password })
@@ -75,6 +77,7 @@ export const deleteAddress = (id) => api.delete(`/addresses/${id}`)
 export const createOrder = (data) => api.post('/orders', data)
 export const getMyOrders = (params) => api.get('/orders', { params })
 export const getMyOrder = (id) => api.get(`/orders/${id}`)
+export const downloadOrderReceipt = (id) => api.get(`/orders/${id}/receipt`, { responseType: 'blob' })
 
 // ---- Payment ----
 export const createCheckoutSession = (orderId) => api.post('/payments/create-checkout-session', { order_id: orderId })
@@ -89,7 +92,7 @@ export const saveProduct = (productId) => api.post(`/saved-products/${productId}
 export const unsaveProduct = (productId) => api.delete(`/saved-products/${productId}`)
 export const getProductReviews = (productId) => api.get(`/products/${productId}/reviews`)
 export const submitProductReview = (productId, data) => api.post(`/products/${productId}/reviews`, data)
-export const validatePromotion = (code) => api.get(`/promotions/${encodeURIComponent(code)}`)
+export const validatePromotion = (code, subtotal = 0) => api.get(`/promotions/${encodeURIComponent(code)}`, { params: { subtotal } })
 
 // ---- Flash Deals ----
 export const getActiveFlashDeals = () => api.get('/flash-deals/active')

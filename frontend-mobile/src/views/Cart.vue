@@ -168,6 +168,7 @@ import { getShippingOptions, saveProduct, validatePromotion } from '../api'
 import { useAuth } from '../composables/useAuth'
 import { useCart } from '../composables/useCart'
 import { useLocation } from '../composables/useLocation'
+import { trackCommerceEvent } from '../composables/useAnalytics'
 
 const router = useRouter()
 const { isAuthenticated } = useAuth()
@@ -194,7 +195,7 @@ const estimatedShipping = ref(null), shippingLoading = ref(false), shippingError
 const promoInput = ref(sessionStorage.getItem('esh_promo_code') || ''), promo = ref(null), promoLoading = ref(false), promoMessage = ref(''), promoError = ref(false)
 const removedItem = ref(null)
 let removedTimer
-const promoDiscount = computed(() => promo.value ? selectedItems.value.reduce((sum,item)=>sum + (Number(item.product?.sale_price||0)-Math.round(Number(item.product?.sale_price||0)*.9*100)/100)*item.quantity,0) : 0)
+const promoDiscount = computed(() => Number(promo.value?.discount_amount || 0))
 const discountedSubtotal = computed(() => selectedTotal.value - promoDiscount.value)
 const estimatedGrandTotal = computed(() => discountedSubtotal.value + Number(estimatedShipping.value || 0))
 
@@ -241,10 +242,10 @@ const removeItem = async (item) => {
 const undoRemove = async () => { if(!removedItem.value)return;try{await addToCart(removedItem.value.product,removedItem.value.quantity);removedItem.value=null}catch{} }
 const moveToSaved = async item => { if(!isAuthenticated.value){router.push({path:'/login',query:{redirect:'/cart'}});return}try{await saveProduct(item.product_id);await removeFromCart(itemKey(item))}catch{} }
 const loadShipping = async () => { if(!countryCode.value||!selectedItems.value.length){estimatedShipping.value=null;return}shippingLoading.value=true;shippingError.value='';try{const results=await Promise.all(selectedItems.value.map(async item=>{const {data}=await getShippingOptions(item.product.slug,countryCode.value);const prices=(data||[]).map(option=>Number(option.price ?? option.total_fee)).filter(Number.isFinite);return (prices.length?Math.min(...prices):0)*item.quantity}));estimatedShipping.value=results.reduce((sum,v)=>sum+v,0)}catch(e){estimatedShipping.value=null;shippingError.value='Delivery will be confirmed at checkout.'}finally{shippingLoading.value=false} }
-const applyPromo = async () => {promoLoading.value=true;promoMessage.value='';promoError.value=false;try{promo.value=(await validatePromotion(promoInput.value)).data;promoInput.value=promo.value.code;sessionStorage.setItem('esh_promo_code',promo.value.code);promoMessage.value=`${promo.value.label}: ${promo.value.discount_value}% off applied.`}catch(e){promo.value=null;sessionStorage.removeItem('esh_promo_code');promoMessage.value=e.response?.data?.detail||'This promotion code is not valid.';promoError.value=true}finally{promoLoading.value=false}}
+const applyPromo = async () => {promoLoading.value=true;promoMessage.value='';promoError.value=false;try{promo.value=(await validatePromotion(promoInput.value,selectedTotal.value)).data;promoInput.value=promo.value.code;sessionStorage.setItem('esh_promo_code',promo.value.code);const benefit=promo.value.discount_type==='percent'?`${promo.value.discount_value}% off`:`€${money(promo.value.discount_value)} off`;promoMessage.value=`${promo.value.label}: ${benefit} applied.`}catch(e){promo.value=null;sessionStorage.removeItem('esh_promo_code');promoMessage.value=e.response?.data?.detail||'This promotion code is not valid.';promoError.value=true}finally{promoLoading.value=false}}
 
 const checkout = () => {
-  if (selectedCount.value) router.push('/checkout')
+  if (selectedCount.value) { trackCommerceEvent('begin_checkout', { properties: { items: selectedUnits.value, subtotal: selectedTotal.value } }); router.push('/checkout') }
 }
 watch([selectedIds,countryCode],loadShipping,{deep:true})
 onMounted(async()=>{await initLocation();if(promoInput.value)await applyPromo();await loadShipping()})

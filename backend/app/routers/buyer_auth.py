@@ -117,9 +117,12 @@ def register(req: UserRegister, db: Session = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 def login(req: LoginRequest, db: Session = Depends(get_db)):
     """统一登录 — 管理员和买家均可使用"""
-    user = db.query(User).filter(User.username == req.username).first()
+    account = req.username.strip()
+    user = db.query(User).filter(
+        (User.username == account) | (User.email == account.lower())
+    ).first()
     if not user or not verify_password(req.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email, username, or password")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is disabled")
     pending_verification = db.query(EmailVerificationToken.id).filter(

@@ -99,7 +99,7 @@
           </div>
           <div class="totals">
             <div><span>Subtotal</span><strong>€{{ money(selectedTotal) }}</strong></div>
-            <div v-if="promoDiscount" class="promo-total"><span>WELCOME10 promotion</span><strong>−€{{ money(promoDiscount) }}</strong></div>
+            <div v-if="promoDiscount" class="promo-total"><span>{{ promotion?.label || couponCode }} promotion</span><strong>−€{{ money(promoDiscount) }}</strong></div>
             <div>
               <span>Standard delivery</span>
               <strong v-if="shippingLoading">Calculating…</strong>
@@ -146,6 +146,7 @@ import {
   getAddresses,
   getCartShippingEstimate,
   getCountries,
+  validatePromotion,
 } from '../api'
 import { useCart } from '../composables/useCart'
 import { useLocation } from '../composables/useLocation'
@@ -171,6 +172,7 @@ const createdOrderId = ref(null)
 const checkoutAttemptKey = ref(sessionStorage.getItem('esh_checkout_idempotency_key') || crypto.randomUUID())
 sessionStorage.setItem('esh_checkout_idempotency_key', checkoutAttemptKey.value)
 const couponCode = ref(sessionStorage.getItem('esh_promo_code') || '')
+const promotion = ref(null)
 const addressForm = reactive({
   recipient_name: '',
   phone: '',
@@ -183,7 +185,7 @@ const addressForm = reactive({
 
 const selectedAddress = computed(() => addresses.value.find(address => address.id === selectedAddressId.value))
 const destinationCountry = computed(() => selectedAddress.value?.country || addressForm.country || countryCode.value || '')
-const promoDiscount = computed(() => couponCode.value === 'WELCOME10' ? selectedItems.value.reduce((sum,item)=>sum + (Number(item.product?.sale_price||0)-Math.round(Number(item.product?.sale_price||0)*.9*100)/100)*item.quantity,0) : 0)
+const promoDiscount = computed(() => Number(promotion.value?.discount_amount || 0))
 const discountedSubtotal = computed(() => Number(selectedTotal.value) - promoDiscount.value)
 const grandTotal = computed(() => authoritativeTotal.value ?? (discountedSubtotal.value + Number(shippingTotal.value)))
 const canPay = computed(() => Boolean(
@@ -269,9 +271,17 @@ onMounted(async () => {
     return
   }
   try {
-    const [addressResult, countryResult] = await Promise.all([getAddresses(), getCountries()])
+    const [addressResult, countryResult, promotionResult] = await Promise.all([
+      getAddresses(), getCountries(),
+      couponCode.value ? validatePromotion(couponCode.value, selectedTotal.value).catch(() => null) : Promise.resolve(null),
+    ])
     addresses.value = addressResult.data || []
     countries.value = countryResult.data || []
+    promotion.value = promotionResult?.data || null
+    if (couponCode.value && !promotion.value) {
+      couponCode.value = ''
+      sessionStorage.removeItem('esh_promo_code')
+    }
     const defaultAddress = addresses.value.find(address => address.is_default) || addresses.value[0]
     if (defaultAddress) selectedAddressId.value = defaultAddress.id
     else {

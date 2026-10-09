@@ -38,6 +38,9 @@ from app.routers import (
     promo_items_public,
     commerce,
     admin_returns,
+    admin_promotions,
+    admin_reviews,
+    analytics,
     seo,
 )
 from app.database import SessionLocal
@@ -108,6 +111,10 @@ app.include_router(gdpr_public.router, prefix="/api/gdpr", tags=["GDPR - Public"
 app.include_router(admin_gdpr.router, prefix="/api/admin/gdpr", tags=["GDPR - Admin"])
 app.include_router(admin_orders.router, prefix="/api/admin/orders", tags=["Orders - Admin"])
 app.include_router(admin_returns.router, prefix="/api/admin/returns", tags=["Returns - Admin"])
+app.include_router(admin_promotions.router, prefix="/api/admin/promotions", tags=["Promotions - Admin"])
+app.include_router(admin_reviews.router, prefix="/api/admin/reviews", tags=["Reviews - Admin"])
+app.include_router(analytics.public_router, prefix="/api/analytics", tags=["Analytics - Public"])
+app.include_router(analytics.admin_router, prefix="/api/admin/analytics", tags=["Analytics - Admin"])
 app.include_router(cart.router, prefix="/api/cart", tags=["Shopping Cart"])
 app.include_router(buyer_orders.router, prefix="/api/orders", tags=["Orders - Buyer"])
 app.include_router(payment.router, prefix="/api/payments", tags=["Payments"])
@@ -143,6 +150,20 @@ async def _reservation_reaper():
 
 @app.on_event("startup")
 async def start_reservation_reaper():
+    from app.models import Promotion, User
+    db = SessionLocal()
+    try:
+        if not db.query(Promotion).filter(Promotion.code == "WELCOME10").first():
+            owner = db.query(User).filter(User.role == "admin").order_by(User.id).first()
+            if owner:
+                db.add(Promotion(
+                    code="WELCOME10", label="Welcome offer", discount_type="percent",
+                    discount_value=10, minimum_subtotal=0, maximum_discount=25,
+                    per_customer_limit=1, is_active=1, created_by=owner.id,
+                ))
+                db.commit()
+    finally:
+        db.close()
     app.state.reservation_reaper = asyncio.create_task(_reservation_reaper())
 
 

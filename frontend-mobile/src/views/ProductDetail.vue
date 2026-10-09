@@ -195,7 +195,7 @@
       <p v-if="!reviews.review_count" class="policy-note">No reviews yet. Be the first to share a useful note.</p>
       <article v-for="review in reviews.reviews" :key="review.id" class="review-item">
         <div><strong>{{ '★'.repeat(review.rating) }}{{ '☆'.repeat(5-review.rating) }}</strong><span>{{ review.reviewer_name }}<em v-if="review.verified_purchase">Verified purchase</em></span></div>
-        <h4 v-if="review.title">{{ review.title }}</h4><p v-if="review.comment">{{ review.comment }}</p>
+        <h4 v-if="review.title">{{ review.title }}</h4><p v-if="review.comment">{{ review.comment }}</p><p v-if="review.merchant_reply" class="merchant-reply"><strong>BeCool replied</strong>{{ review.merchant_reply }}</p>
       </article>
       <button v-if="isAuthenticated && !showReviewForm" type="button" class="read-more" @click="showReviewForm=true">Write a review</button>
       <router-link v-else-if="!isAuthenticated" class="review-signin" :to="{path:'/login',query:{redirect:route.fullPath}}">Sign in to write a review</router-link>
@@ -286,6 +286,7 @@ import { useCart } from '../composables/useCart'
 import { useAuth } from '../composables/useAuth'
 import { useLocation } from '../composables/useLocation'
 import { applyProductSeo, resetProductSeo } from '../composables/useProductSeo'
+import { trackCommerceEvent } from '../composables/useAnalytics'
 
 const route = useRoute()
 const router = useRouter()
@@ -381,7 +382,7 @@ const sendReview = async () => {
   try {
     await submitProductReview(product.value.id, reviewForm.value)
     reviews.value = (await getProductReviews(product.value.id)).data
-    reviewMessage.value = 'Your review is published.'; showReviewForm.value = false
+    reviewMessage.value = 'Thanks — your review is waiting for a quick moderation check.'; showReviewForm.value = false
   } catch (error) {
     reviewMessage.value = error.response?.data?.detail || 'Could not publish your review.'; reviewError.value = true
   } finally { reviewPending.value = false }
@@ -515,6 +516,7 @@ onMounted(async () => {
     const response = route.params.token ? await getSharedProduct(route.params.token) : await getProduct(route.params.slug)
     const data = route.params.token ? response.data.product : response.data
     product.value = data
+    trackCommerceEvent('view_product', { path: route.fullPath, product_id: data.id })
     applyProductSeo(data, window.location.href)
     if (route.params.token) {
       publicReference.value = response.data.public_reference
@@ -628,6 +630,7 @@ onMounted(async () => {
 .review-item em { margin-left:7px; padding:3px 6px; border-radius:999px; background:#e9f2c8; color:#345144; font-size:9px; font-style:normal; font-weight:800; }
 .review-item h4 { margin:9px 0 3px; font-size:13px; }
 .review-item p { margin:0; color:#5f6f64; font-size:13px; line-height:1.55; }
+.review-item .merchant-reply{display:grid;gap:3px;margin-top:10px;padding:10px 12px;border-radius:12px;background:#eef3cb}.merchant-reply strong{font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .review-signin { display:inline-block; min-height:44px; padding-top:13px; color:#17483b; font-size:13px; font-weight:800; }
 .review-form { display:grid; gap:10px; padding-top:14px; border-top:1px solid #e7e9e2; }
 .review-form label { display:grid; gap:5px; color:#5f6f64; font-size:11px; font-weight:800; }

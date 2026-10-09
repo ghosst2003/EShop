@@ -28,6 +28,7 @@ class ReviewOut(BaseModel):
     reviewer_name: str
     verified_purchase: bool
     created_at: datetime
+    merchant_reply: Optional[str] = None
 
 
 class ReviewsSummary(BaseModel):

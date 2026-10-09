@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
+from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -48,12 +49,18 @@ def list_products(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status: str | None = None,
+    keyword: str | None = None,
+    low_stock: bool = False,
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
     q = db.query(Product).options(joinedload(Product.images))
     if status:
         q = q.filter(Product.status == status)
+    if keyword:
+        q = q.filter((Product.title.ilike(f"%{keyword}%")) | (Product.title_en.ilike(f"%{keyword}%")) | (Product.brand.ilike(f"%{keyword}%")))
+    if low_stock:
+        q = q.filter(Product.auto_manage_stock == 1, Product.stock_quantity <= 5)
     total = q.count()
     items = q.order_by(Product.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     return ProductListResponse(items=items, total=total, page=page, page_size=page_size)
@@ -232,6 +239,30 @@ def update_status(
     db.refresh(product)
     _log_action(db, user, "status_change", "product", product_id, {"status": data.status})
     return product
+
+
+class ProductBulkStatus(BaseModel):
+    product_ids: list[int] = Field(min_length=1, max_length=100)
+    status: str
+
+
+@router.patch("/bulk-status")
+def bulk_update_status(
+    data: ProductBulkStatus,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if data.status not in {"draft", "active", "sold", "archived"}:
+        raise HTTPException(status_code=400, detail="Invalid product status")
+    rows = db.query(Product).filter(Product.id.in_(data.product_ids)).all()
+    from datetime import datetime
+    for product in rows:
+        product.status = data.status
+        if data.status == "active" and product.published_at is None:
+            product.published_at = datetime.utcnow()
+    db.commit()
+    _log_action(db, user, "bulk_status", "product", None, {"product_ids": data.product_ids, "status": data.status})
+    return {"updated": len(rows), "status": data.status}
 
 
 @router.post("/{product_id}/images", response_model=ProductImageOut)

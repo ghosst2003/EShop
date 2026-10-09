@@ -6,6 +6,7 @@
     </div>
 
     <el-form :inline="true" :model="searchForm" class="search-form">
+      <el-form-item label="搜索"><el-input v-model="searchForm.keyword" clearable placeholder="名称或品牌" @keyup.enter="fetchProducts" /></el-form-item>
       <el-form-item label="状态">
         <el-select v-model="searchForm.status" placeholder="全部" clearable style="width: 120px" @change="fetchProducts">
           <el-option label="草稿" value="draft" />
@@ -14,12 +15,15 @@
           <el-option label="归档" value="archived" />
         </el-select>
       </el-form-item>
+      <el-form-item><el-checkbox v-model="searchForm.low_stock" @change="fetchProducts">仅看低库存</el-checkbox></el-form-item>
       <el-form-item>
         <el-button @click="fetchProducts">搜索</el-button>
       </el-form-item>
+      <el-form-item v-if="selected.length"><el-select v-model="bulkStatus" placeholder="批量变更状态" style="width:150px"><el-option label="上架" value="active"/><el-option label="草稿" value="draft"/><el-option label="归档" value="archived"/></el-select><el-button type="primary" :disabled="!bulkStatus" @click="applyBulk">应用到 {{ selected.length }} 件</el-button></el-form-item>
     </el-form>
 
-    <el-table :data="products" stripe style="width: 100%" v-loading="loading">
+    <el-table :data="products" stripe style="width: 100%" v-loading="loading" @selection-change="selected=$event">
+      <el-table-column type="selection" width="45" />
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column label="图片" width="80">
         <template #default="{ row }">
@@ -39,7 +43,7 @@
       </el-table-column>
       <el-table-column prop="stock_quantity" label="库存" width="80">
         <template #default="{ row }">
-          <el-tag v-if="row.auto_manage_stock" :type="row.stock_quantity > 0 ? 'success' : 'danger'" size="small">
+          <el-tag v-if="row.auto_manage_stock" :type="row.stock_quantity <= 0 ? 'danger' : row.stock_quantity <= 5 ? 'warning' : 'success'" size="small">
             {{ row.stock_quantity }}
           </el-tag>
           <span v-else style="color: #909399">—</span>
@@ -94,14 +98,16 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getProducts, updateProductStatus } from '../api'
+import { bulkUpdateProductStatus, getProducts, updateProductStatus } from '../api'
 
 const products = ref([])
 const loading = ref(false)
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
-const searchForm = reactive({ status: '' })
+const searchForm = reactive({ status: '', keyword: '', low_stock: false })
+const selected = ref([])
+const bulkStatus = ref('')
 
 const conditionLabel = (g) => ({
   new: '全新', like_new: '近新', good: '良好', fair: '一般', poor: '较差', for_parts: '零件'
@@ -125,6 +131,8 @@ const fetchProducts = async () => {
   try {
     const params = { page: page.value, page_size: pageSize.value }
     if (searchForm.status) params.status = searchForm.status
+    if (searchForm.keyword) params.keyword = searchForm.keyword
+    if (searchForm.low_stock) params.low_stock = true
     const { data } = await getProducts(params)
     products.value = data.items
     total.value = data.total
@@ -133,6 +141,15 @@ const fetchProducts = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const applyBulk = async () => {
+  try {
+    await bulkUpdateProductStatus(selected.value.map(row => row.id), bulkStatus.value)
+    ElMessage.success(`已更新 ${selected.value.length} 件商品`)
+    bulkStatus.value = ''
+    await fetchProducts()
+  } catch (e) { ElMessage.error(e.response?.data?.detail || '批量更新失败') }
 }
 
 const handleStatusChange = async (row) => {

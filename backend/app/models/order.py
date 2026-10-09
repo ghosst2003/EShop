@@ -51,6 +51,7 @@ class Order(Base):
     buyer = relationship("User", foreign_keys=[buyer_id])
     reservation = relationship("OrderReservation", uselist=False, cascade="all, delete-orphan")
     financials = relationship("OrderFinancialSnapshot", uselist=False, cascade="all, delete-orphan")
+    shipment = relationship("OrderShipment", uselist=False, cascade="all, delete-orphan")
 
 
 class OrderItem(Base):

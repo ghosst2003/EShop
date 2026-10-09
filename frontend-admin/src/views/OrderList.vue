@@ -183,6 +183,15 @@
           <el-descriptions-item label="创建时间">{{ formatDate(currentOrder.created_at) }}</el-descriptions-item>
         </el-descriptions>
 
+        <div class="shipment-box">
+          <div class="shipment-title"><h4>物流追踪</h4><el-button size="small" type="primary" :loading="savingShipment" @click="saveShipment">保存物流</el-button></div>
+          <el-form label-position="top" :model="shipmentForm">
+            <div class="shipment-grid"><el-form-item label="承运商"><el-input v-model="shipmentForm.carrier" placeholder="DHL / DPD / UPS" /></el-form-item><el-form-item label="物流单号"><el-input v-model="shipmentForm.tracking_number" /></el-form-item></div>
+            <el-form-item label="公开追踪链接"><el-input v-model="shipmentForm.tracking_url" placeholder="https://carrier.example/track/..." /></el-form-item>
+            <el-form-item label="预计送达"><el-date-picker v-model="shipmentForm.estimated_delivery_at" type="datetime" placeholder="可选" /></el-form-item>
+          </el-form>
+        </div>
+
         <h4 class="section-title">商品明细</h4>
         <el-table :data="currentOrder.items" size="small">
           <el-table-column prop="product_title" label="商品" />
@@ -228,6 +237,8 @@ const searchKeyword = ref('')
 const showCreateDialog = ref(false)
 const showDetail = ref(false)
 const currentOrder = ref(null)
+const savingShipment = ref(false)
+const shipmentForm = ref({ carrier: '', tracking_number: '', tracking_url: '', estimated_delivery_at: null })
 
 const newOrder = ref({
   buyer_name: '',
@@ -307,10 +318,29 @@ const viewOrder = async (order) => {
   try {
     const res = await api.get(`/admin/orders/${order.id}`)
     currentOrder.value = res.data
+    shipmentForm.value = {
+      carrier: res.data.shipment?.carrier || res.data.shipping_method || '',
+      tracking_number: res.data.shipment?.tracking_number || res.data.tracking_number || '',
+      tracking_url: res.data.shipment?.tracking_url || '',
+      estimated_delivery_at: res.data.shipment?.estimated_delivery_at ? new Date(res.data.shipment.estimated_delivery_at) : null,
+    }
     showDetail.value = true
   } catch (e) {
     ElMessage.error('加载订单详情失败')
   }
+}
+
+const saveShipment = async () => {
+  if (!shipmentForm.value.carrier.trim() || !shipmentForm.value.tracking_number.trim()) return ElMessage.warning('请填写承运商和物流单号')
+  savingShipment.value = true
+  try {
+    const payload = { ...shipmentForm.value, estimated_delivery_at: shipmentForm.value.estimated_delivery_at?.toISOString?.() || null }
+    const res = await api.put(`/admin/orders/${currentOrder.value.id}/shipment`, payload)
+    currentOrder.value = res.data
+    ElMessage.success('物流信息已保存，买家现在可以点击追踪')
+    loadOrders()
+  } catch (e) { ElMessage.error(e.response?.data?.detail || '物流信息保存失败') }
+  finally { savingShipment.value = false }
 }
 
 const handleStatusChange = async (order, newStatus) => {
@@ -419,6 +449,7 @@ onMounted(() => {
   font-weight: bold;
   margin-top: 16px;
 }
+.shipment-box{padding:14px;border-radius:10px;background:#f5f7fa}.shipment-title{display:flex;align-items:center;justify-content:space-between}.shipment-title h4{margin:0 0 12px}.shipment-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .log-note {
   color: #909399;
 }

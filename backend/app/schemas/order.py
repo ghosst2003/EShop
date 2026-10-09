@@ -75,6 +75,15 @@ class OrderFinancialOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class OrderShipmentOut(BaseModel):
+    carrier: str
+    tracking_number: str
+    tracking_url: Optional[str] = None
+    estimated_delivery_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
 class OrderOut(BaseModel):
     id: int
     order_number: str
@@ -103,6 +112,7 @@ class OrderOut(BaseModel):
     items: List[OrderItemOut] = []
     status_logs: List[OrderStatusLogOut] = []
     financials: Optional[OrderFinancialOut] = None
+    shipment: Optional[OrderShipmentOut] = None
 
     model_config = {"from_attributes": True}
 

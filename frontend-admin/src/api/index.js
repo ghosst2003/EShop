@@ -38,6 +38,7 @@ export const createProduct = (data) => api.post('/admin/products', data)
 export const updateProduct = (id, data) => api.put(`/admin/products/${id}`, data)
 export const deleteProduct = (id) => api.delete(`/admin/products/${id}`)
 export const updateProductStatus = (id, status) => api.patch(`/admin/products/${id}/status`, { status })
+export const bulkUpdateProductStatus = (productIds, status) => api.patch('/admin/products/bulk-status', { product_ids: productIds, status })
 export const uploadProductImage = (productId, file, altText) => {
   const form = new FormData()
   form.append('file', file)
@@ -112,6 +113,7 @@ export const getOrderStats = () => api.get('/admin/orders/stats')
 export const getOrder = (id) => api.get(`/admin/orders/${id}`)
 export const createOrder = (data) => api.post('/admin/orders', data)
 export const updateOrder = (id, data) => api.put(`/admin/orders/${id}`, data)
+export const updateOrderShipment = (id, data) => api.put(`/admin/orders/${id}/shipment`, data)
 export const updateOrderStatus = (id, data) => api.post(`/admin/orders/${id}/status`, data)
 export const deleteOrder = (id) => api.delete(`/admin/orders/${id}`)
 
@@ -137,5 +139,11 @@ export const reactivatePaymentMethod = (id) => api.post(`/admin/payment-methods/
 // ---- Global Shipping Settings ----
 export const getGlobalShippingSettings = () => api.get('/admin/shipping-settings')
 export const updateGlobalShippingSettings = (data) => api.put('/admin/shipping-settings', data)
+
+// ---- Promotions ----
+export const getPromotions = () => api.get('/admin/promotions')
+export const createPromotion = (data) => api.post('/admin/promotions', data)
+export const updatePromotion = (id, data) => api.put(`/admin/promotions/${id}`, data)
+export const setPromotionActive = (id, active) => api.patch(`/admin/promotions/${id}/active`, null, { params: { active } })
 
 export default api

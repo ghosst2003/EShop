@@ -14,6 +14,12 @@
       </form>
     </header>
 
+    <nav class="trust-strip" aria-label="Shopping reassurance">
+      <router-link to="/legal/returns"><strong>Clear returns</strong><span>Policy on every product</span></router-link>
+      <router-link to="/legal/privacy"><strong>Secure checkout</strong><span>Cards handled by Stripe</span></router-link>
+      <router-link to="/legal/support"><strong>Real support</strong><span>Help with orders and returns</span></router-link>
+    </nav>
+
     <section v-if="promoBanner" class="hero-offer" :style="promoBanner.style">
       <div class="hero-copy">
         <span v-if="promoBanner.tag" class="eyebrow">{{ promoBanner.tag }}</span>
@@ -72,9 +78,9 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getProducts, getActiveFlashDeals, getActiveBanners, getCategories, getPromoItems, getProductById } from '../api'
+import { getProducts, getActiveFlashDeals, getActiveBanners, getCategories, getPromoItems, getProductById, getSearchSuggestions } from '../api'
 
 const router = useRouter()
 const products = ref([])
@@ -95,6 +101,7 @@ const activeTab = ref('Recommended')
 const promoPending = ref(null)
 const feedBatchSize = 12
 let feedObserver = null
+let suggestionTimer = null
 
 const searchPlaceholder = ref('Search products...')
 
@@ -174,6 +181,7 @@ const handleSearch = () => {
     router.push({ path: '/browse', query: { q: query } })
   }
 }
+watch(searchQuery, value => { window.clearTimeout(suggestionTimer); if(!value.trim())return; suggestionTimer=window.setTimeout(async()=>{try{const {data}=await getSearchSuggestions(value.trim());searchSuggestions.value=[...data.map(item=>item.label),...searchSuggestions.value].filter((item,index,all)=>item&&all.indexOf(item)===index).slice(0,12)}catch{}},220) })
 const activatePromo = async (promo, key) => {
   if (promoPending.value !== null) return
   promoPending.value = key
@@ -298,10 +306,12 @@ onMounted(async () => {
 
 onUnmounted(() => {
   feedObserver?.disconnect()
+  window.clearTimeout(suggestionTimer)
 })
 </script>
 
 <style scoped>
+.trust-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin:12px 14px 0;overflow:hidden;border:1px solid rgba(23,72,59,.1);border-radius:16px;background:rgba(23,72,59,.1)}.trust-strip a{display:grid;gap:2px;padding:11px 9px;background:#fffdf8;color:#17483b}.trust-strip strong{font-size:10px}.trust-strip span{color:#6b7a71;font-size:8px;line-height:1.35}
 .home-shell { background: #f5f2e9; color: #183c32; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .home-header { padding: max(16px, env(safe-area-inset-top)) 20px 12px; background: #17483b; color: #fffdf6; border-radius: 0 0 25px 25px; }
 .brand-row { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; }

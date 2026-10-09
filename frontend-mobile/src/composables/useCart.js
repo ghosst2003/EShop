@@ -1,6 +1,7 @@
 import { ref, computed, watch } from 'vue'
 import api from '../api'
 import { useAuth } from './useAuth'
+import { trackCommerceEvent } from './useAnalytics'
 
 const LOCAL_KEY = 'guest-cart'
 
@@ -158,6 +159,7 @@ export function useCart() {
         guestCart.value = [...guestCart.value, { product_id: productId, product, quantity: qty }]
         saveGuest()
       }
+      trackCommerceEvent('add_to_cart', { product_id: productId, properties: { quantity: qty } })
       return true
     } catch (err) {
       const message = getErrorMessage(err, 'Could not add this item to your cart.')

@@ -45,6 +45,18 @@
           <el-icon><Grid /></el-icon>
           <span>Promo Items</span>
         </el-menu-item>
+        <el-menu-item index="/promotions">
+          <el-icon><Discount /></el-icon>
+          <span>优惠码</span>
+        </el-menu-item>
+        <el-menu-item index="/reviews">
+          <el-icon><ChatLineSquare /></el-icon>
+          <span>评价管理</span>
+        </el-menu-item>
+        <el-menu-item index="/analytics">
+          <el-icon><DataAnalysis /></el-icon>
+          <span>转化分析</span>
+        </el-menu-item>
         <el-menu-item index="/shipping-methods">
           <el-icon><Van /></el-icon>
           <span>派送方式</span>
@@ -91,7 +103,7 @@
 
 <script setup>
 import { useRouter, useRoute } from 'vue-router'
-import { Goods, Menu, Document, ArrowDown, ShoppingCart, Timer, Picture, Van, Location, Flag, CreditCard, Setting, Grid, RefreshLeft } from '@element-plus/icons-vue'
+import { Goods, Menu, Document, ArrowDown, ShoppingCart, Timer, Picture, Van, Location, Flag, CreditCard, Setting, Grid, RefreshLeft, Discount, ChatLineSquare, DataAnalysis } from '@element-plus/icons-vue'
 import { useAuthStore } from '../store/auth'
 
 const router = useRouter()

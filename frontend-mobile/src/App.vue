@@ -6,6 +6,7 @@
       </transition>
     </router-view>
   </div>
+  <CookiePreferences />
 
   <!-- Bottom Tab Bar -->
   <div v-if="showBottomTabBar" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50 flex safe-bottom">
@@ -36,6 +37,8 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from './composables/useAuth.js'
 import { useCart } from './composables/useCart.js'
+import CookiePreferences from './components/CookiePreferences.vue'
+import { trackCommerceEvent } from './composables/useAnalytics.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -51,7 +54,8 @@ watch(() => route.path, (newPath, oldPath) => {
   } else {
     transitionName.value = 'page'
   }
-})
+  trackCommerceEvent('page_view', { path: newPath })
+}, { immediate: true })
 
 const tabs = computed(() => [
   { path: '/', icon: '🏠', label: 'Home' },

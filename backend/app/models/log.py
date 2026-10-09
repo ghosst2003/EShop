@@ -6,7 +6,7 @@ from app.models import Base
 class OperationLog(Base):
     __tablename__ = "operation_logs"
 
-    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     action = Column(String(50), nullable=False)
     entity_type = Column(String(50), nullable=False)

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, DECIMAL, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Column, DateTime, DECIMAL, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
 from app.models import Base
@@ -31,6 +31,22 @@ class ProductReview(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     buyer = relationship("User")
+
+
+class ReviewModeration(Base):
+    """Moderation and merchant reply kept separate for backward-compatible installs."""
+    __tablename__ = "review_moderation"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    review_id = Column(Integer, ForeignKey("product_reviews.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    status = Column(String(20), default="pending", nullable=False, index=True)
+    merchant_reply = Column(Text)
+    moderated_by = Column(Integer, ForeignKey("users.id"))
+    moderated_at = Column(DateTime)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    review = relationship("ProductReview")
 
 
 class ReturnRequest(Base):
@@ -146,3 +162,62 @@ class OrderNotification(Base):
     last_error = Column(Text)
     sent_at = Column(DateTime)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class Promotion(Base):
+    __tablename__ = "promotions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(50), nullable=False, unique=True, index=True)
+    label = Column(String(120), nullable=False)
+    discount_type = Column(String(20), default="percent", nullable=False)
+    discount_value = Column(DECIMAL(10, 2), nullable=False)
+    minimum_subtotal = Column(DECIMAL(10, 2), default=0, nullable=False)
+    maximum_discount = Column(DECIMAL(10, 2))
+    usage_limit = Column(Integer)
+    per_customer_limit = Column(Integer, default=1, nullable=False)
+    starts_at = Column(DateTime)
+    ends_at = Column(DateTime)
+    is_active = Column(Integer, default=1, nullable=False, index=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class PromotionRedemption(Base):
+    __tablename__ = "promotion_redemptions"
+    __table_args__ = (UniqueConstraint("promotion_id", "order_id", name="uq_promotion_order"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    promotion_id = Column(Integer, ForeignKey("promotions.id", ondelete="CASCADE"), nullable=False, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    buyer_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    discount_amount = Column(DECIMAL(10, 2), nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class OrderShipment(Base):
+    __tablename__ = "order_shipments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    carrier = Column(String(80), nullable=False)
+    tracking_number = Column(String(120), nullable=False)
+    tracking_url = Column(String(600))
+    estimated_delivery_at = Column(DateTime)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class CommerceEvent(Base):
+    __tablename__ = "commerce_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(String(128), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    event_name = Column(String(50), nullable=False, index=True)
+    path = Column(String(500))
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="SET NULL"), index=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="SET NULL"), index=True)
+    properties = Column(JSON)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False, index=True)

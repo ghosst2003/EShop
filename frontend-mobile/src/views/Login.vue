@@ -6,8 +6,8 @@
       <h1>Sign in to continue</h1>
       <p class="intro">Your bag and saved finds will be waiting.</p>
       <form @submit.prevent="handleLogin">
-        <label for="login-username">Username</label>
-        <input id="login-username" v-model.trim="form.username" autocomplete="username" required placeholder="Your username" />
+        <label for="login-username">Email or username</label>
+        <input id="login-username" v-model.trim="form.username" autocomplete="username" required placeholder="you@example.com or username" />
         <div class="password-label"><label for="login-password">Password</label><router-link to="/forgot-password">Forgot password?</router-link></div>
         <div class="password-field">
           <input id="login-password" v-model="form.password" :type="showPassword ? 'text' : 'password'" autocomplete="current-password" required placeholder="Your password" />
