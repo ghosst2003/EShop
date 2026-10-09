@@ -1,144 +1,35 @@
 <template>
-  <div>
-    <Navbar />
-    <div class="max-w-4xl mx-auto px-4 py-8" v-if="order">
-      <div class="flex justify-between items-start mb-6">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900">Order #{{ order.order_number }}</h1>
-          <p class="text-gray-500 text-sm mt-1">{{ formatDate(order.created_at) }}</p>
-        </div>
-        <div class="text-right">
-          <span class="text-2xl font-bold text-primary">€{{ order.total_amount }}</span>
-        </div>
-      </div>
-
-      <!-- Status Badges -->
-      <div class="flex gap-3 mb-6">
-        <span :class="statusBadge(order.status)" class="px-4 py-2 rounded-full font-semibold text-sm">
-          {{ statusLabel(order.status) }}
-        </span>
-        <span :class="paymentBadge(order.payment_status)" class="px-4 py-2 rounded-full font-semibold text-sm">
-          {{ paymentLabel(order.payment_status) }}
-        </span>
-      </div>
-
-      <!-- Order Timeline -->
-      <div class="bg-white rounded-2xl shadow p-6 mb-6">
-        <h2 class="font-bold text-lg mb-4">Order Progress</h2>
-        <div class="flex items-center gap-0">
-          <div v-for="(s, i) in timeline" :key="s.status" class="flex-1 text-center">
-            <div class="w-10 h-10 rounded-full mx-auto flex items-center justify-center text-sm font-bold"
-              :class="s.active ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'">
-              {{ s.active ? '✓' : (i + 1) }}
-            </div>
-            <div class="text-xs mt-2 font-semibold" :class="s.active ? 'text-primary' : 'text-gray-400'">{{ s.label }}</div>
-            <div class="text-xs text-gray-400" v-if="s.date">{{ s.date }}</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Order Items -->
-      <div class="bg-white rounded-2xl shadow p-6 mb-6">
-        <h2 class="font-bold text-lg mb-4">Items</h2>
-        <div class="divide-y">
-          <div v-for="item in order.items" :key="item.id" class="flex justify-between py-4">
-            <div>
-              <p class="font-semibold">{{ item.product_title }}</p>
-              <p class="text-gray-500 text-sm">Qty: {{ item.quantity }}</p>
-            </div>
-            <p class="font-bold">€{{ item.subtotal }}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Shipping Info -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="bg-white rounded-2xl shadow p-6">
-          <h2 class="font-bold text-lg mb-3">Shipping Address</h2>
-          <p class="text-gray-600 whitespace-pre-line">{{ order.buyer_address }}</p>
-          <p class="text-gray-500 text-sm mt-2">{{ order.buyer_name }} · {{ order.buyer_phone || '-' }}</p>
-        </div>
-        <div class="bg-white rounded-2xl shadow p-6">
-          <h2 class="font-bold text-lg mb-3">Payment</h2>
-          <p class="text-gray-600">Method: {{ order.payment_method || 'Not set' }}</p>
-          <p v-if="order.tracking_number" class="text-gray-600 mt-2">Tracking: <span class="font-mono font-bold">{{ order.tracking_number }}</span></p>
-          <p v-if="order.notes" class="text-gray-600 mt-2">Notes: {{ order.notes }}</p>
-        </div>
-      </div>
-
-      <!-- Status Logs -->
-      <div v-if="order.status_logs?.length" class="bg-white rounded-2xl shadow p-6 mt-6">
-        <h2 class="font-bold text-lg mb-4">Status History</h2>
-        <div class="space-y-2">
-          <div v-for="log in order.status_logs" :key="log.id" class="flex items-center gap-3 text-sm">
-            <span class="text-gray-400">{{ formatDate(log.created_at) }}</span>
-            <span class="text-gray-500">{{ log.from_status || 'Created' }}</span>
-            <span>→</span>
-            <span class="font-semibold">{{ statusLabel(log.to_status) }}</span>
-            <span v-if="log.note" class="text-gray-400">({{ log.note }})</span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div v-else-if="loading" class="min-h-screen flex items-center justify-center text-gray-400">Loading...</div>
-    <div v-else class="min-h-screen flex items-center justify-center text-gray-400">Order not found.</div>
-    <Footer />
-  </div>
+  <div><Navbar/><main class="detail-page safe-top">
+    <header><button type="button" aria-label="Go back" @click="$router.back()">←</button><div><span>ORDER DETAILS</span><h1>{{ order?.order_number || 'Your order' }}</h1></div></header>
+    <div v-if="loading" class="state-card" role="status">Loading order details…</div><div v-else-if="error" class="state-card" role="alert"><h2>Order unavailable</h2><p>{{ error }}</p><button type="button" @click="load">Try again</button></div>
+    <template v-else-if="order">
+      <section class="status-card"><span :class="`status-dot status-${order.status}`"></span><div><small>CURRENT STATUS</small><h2>{{ statusLabel(order.status) }}</h2><p>{{ statusCopy(order) }}</p></div></section>
+      <section v-if="steps.length" class="panel"><span class="kicker">JOURNEY</span><h2>Order timeline</h2><ol class="timeline"><li v-for="step in steps" :key="step.id"><span></span><div><strong>{{ statusLabel(step.to_status) }}</strong><small>{{ formatDateTime(step.created_at) }}</small><p v-if="step.note">{{ step.note }}</p></div></li></ol></section>
+      <section class="panel"><span class="kicker">THE PIECES</span><h2>{{ order.items.length }} {{ order.items.length===1?'item':'items' }}</h2><article v-for="item in order.items" :key="item.id" class="line-item"><div class="item-mark">{{ (item.product_title_en||item.product_title||'I')[0] }}</div><div><strong>{{ item.product_title_en||item.product_title }}</strong><span>Quantity {{ item.quantity }} · €{{ money(item.unit_price) }} each</span></div><b>€{{ money(item.subtotal) }}</b></article></section>
+      <section class="panel split"><div><span class="kicker">DELIVERY TO</span><p>{{ order.buyer_name }}</p><address>{{ order.buyer_address }}</address><small v-if="order.buyer_phone">{{ order.buyer_phone }}</small></div><div v-if="order.tracking_number"><span class="kicker">TRACKING</span><p>{{ order.shipment?.carrier||order.shipping_method||'Delivery' }}</p><a v-if="order.shipment?.tracking_url" :href="order.shipment.tracking_url" target="_blank" rel="noopener noreferrer">Track parcel · {{ order.tracking_number }} ↗</a><code v-else>{{ order.tracking_number }}</code><small v-if="order.shipment?.estimated_delivery_at">Estimated {{ formatDate(order.shipment.estimated_delivery_at) }}</small></div></section>
+      <section class="panel totals"><div><span>Subtotal</span><strong>€{{ money(order.financials?.subtotal ?? subtotal) }}</strong></div><div v-if="Number(order.financials?.discount_amount||0)>0" class="discount"><span>Promotion</span><strong>−€{{ money(order.financials.discount_amount) }}</strong></div><div><span>Delivery</span><strong>{{ Number(order.shipping_price||0)===0?'Free':`€${money(order.shipping_price)}` }}</strong></div><div v-if="order.financials"><span>VAT {{ order.financials.prices_include_tax ? '(included)' : '' }}</span><strong>€{{ money(order.financials.tax_amount) }}</strong></div><div class="grand"><span>Total</span><strong>€{{ money(order.total_amount) }}</strong></div><small>Paid with {{ order.payment_method || 'secure checkout' }} · {{ order.payment_status }}</small></section>
+      <p v-if="actionMessage" class="action-message" :class="{error:actionError}" role="status">{{ actionMessage }}</p>
+      <p v-if="returnStatus" class="return-status">Return status: <strong>{{ returnStatus.replace('_',' ') }}</strong></p>
+      <section class="actions"><button v-if="canPay" type="button" class="primary" :disabled="actionPending" @click="pay">{{ actionPending==='pay'?'Opening checkout…':'Complete payment' }}</button><button v-if="canCancel" type="button" :disabled="actionPending" @click="cancel">{{ actionPending==='cancel'?'Cancelling…':'Cancel order' }}</button><button v-if="canReturn && !returnStatus" type="button" :disabled="actionPending" @click="showReturn=!showReturn">Request a return</button><button v-if="canReorder" type="button" :disabled="actionPending" @click="reorder">{{ actionPending==='reorder'?'Adding…':'Add available items to cart' }}</button><button type="button" :disabled="actionPending" @click="receipt">Download receipt</button></section>
+      <form v-if="showReturn" class="panel return-form" @submit.prevent="requestReturn"><span class="kicker">RETURN REQUEST</span><h2>Tell us what happened</h2><label>Reason<select v-model="returnForm.reason" required><option value="" disabled>Choose a reason</option><option>Item not as described</option><option>Damaged in transit</option><option>Changed my mind</option><option>Other</option></select></label><label>Details<textarea v-model.trim="returnForm.details" placeholder="Add details that will help us review your request"></textarea></label><button class="primary" :disabled="actionPending">{{ actionPending==='return'?'Sending…':'Send request' }}</button></form>
+    </template>
+  </main><Footer/></div>
 </template>
-
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import Navbar from '../components/Navbar.vue'
-import Footer from '../components/Footer.vue'
-import { getMyOrder } from '../api'
-
-const route = useRoute()
-const order = ref(null)
-const loading = ref(true)
-
-const statusLabel = (s) => ({
-  pending: 'Pending', paid: 'Paid', shipped: 'Shipped',
-  completed: 'Completed', cancelled: 'Cancelled',
-}[s] || s)
-
-const statusBadge = (s) => ({
-  pending: 'bg-orange-100 text-orange-700', paid: 'bg-green-100 text-green-700',
-  shipped: 'bg-blue-100 text-blue-700', completed: 'bg-gray-100 text-gray-700',
-  cancelled: 'bg-red-100 text-red-700',
-}[s] || 'bg-gray-100 text-gray-700')
-
-const paymentLabel = (s) => ({
-  pending: 'Payment Pending', paid: 'Paid', failed: 'Payment Failed',
-  requires_action: 'Action Required', refunded: 'Refunded',
-}[s] || s)
-
-const paymentBadge = (s) => ({
-  pending: 'bg-gray-100 text-gray-600', paid: 'bg-green-100 text-green-700',
-  failed: 'bg-red-100 text-red-700', requires_action: 'bg-yellow-100 text-yellow-700',
-  refunded: 'bg-purple-100 text-purple-700',
-}[s] || 'bg-gray-100 text-gray-600')
-
-const formatDate = (d) => d ? new Date(d).toLocaleDateString('zh-CN') : ''
-
-const timeline = ref([])
-
-onMounted(async () => {
-  try {
-    const res = await getMyOrder(route.params.id)
-    order.value = res.data
-
-    const o = order.value
-    timeline.value = [
-      { status: 'created', label: 'Created', active: true, date: formatDate(o.created_at) },
-      { status: 'paid', label: 'Paid', active: !!o.paid_at, date: formatDate(o.paid_at) },
-      { status: 'shipped', label: 'Shipped', active: !!o.shipped_at, date: formatDate(o.shipped_at) },
-      { status: 'completed', label: 'Completed', active: !!o.completed_at, date: formatDate(o.completed_at) },
-    ]
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loading.value = false
-  }
-})
+import {computed,onMounted,reactive,ref} from 'vue';import {useRoute,useRouter} from 'vue-router';import {cancelOrder,createCheckoutSession,createReturnRequest,downloadOrderReceipt,getMyOrder,getReturnRequest,reorderOrder} from '../api';import {useCart} from '../composables/useCart';import Navbar from '../components/Navbar.vue';import Footer from '../components/Footer.vue'
+const route=useRoute(),router=useRouter(),order=ref(null),loading=ref(true),error=ref(''),actionPending=ref(''),actionMessage=ref(''),actionError=ref(false),showReturn=ref(false),returnStatus=ref(''),returnForm=reactive({reason:'',details:''});const {fetchCart}=useCart()
+const subtotal=computed(()=>order.value?.items?.reduce((sum,item)=>sum+Number(item.subtotal),0)||0);const steps=computed(()=>order.value?.status_logs||[]);const canPay=computed(()=>order.value?.status==='pending'&&order.value?.payment_status!=='paid');const canCancel=computed(()=>canPay.value);const canReturn=computed(()=>['shipped','completed'].includes(order.value?.status));const canReorder=computed(()=>['completed','cancelled'].includes(order.value?.status));const money=v=>Number(v||0).toFixed(2);const statusLabel=s=>({pending:'Payment due',paid:'Preparing your order',shipped:'On the way',completed:'Delivered',cancelled:'Cancelled',refunded:'Refunded'}[s]||s);const statusCopy=o=>({pending:'Your items are reserved. Complete payment to confirm the order.',paid:'Payment confirmed. We are getting your pieces ready.',shipped:o.tracking_number?`Track your parcel with ${o.tracking_number}.`:'Your parcel has left us and is heading your way.',completed:'Delivered. You can request a return here if needed.',cancelled:'This order has been closed.'}[o.status]||'Open this page for the latest update.');const formatDateTime=v=>new Intl.DateTimeFormat('en',{dateStyle:'medium',timeStyle:'short'}).format(new Date(v));const formatDate=v=>new Intl.DateTimeFormat('en',{dateStyle:'medium'}).format(new Date(v))
+async function load(){loading.value=true;error.value='';try{order.value=(await getMyOrder(route.params.id)).data;if(['shipped','completed'].includes(order.value.status)){try{returnStatus.value=(await getReturnRequest(order.value.id)).data.status}catch(e){if(e.response?.status!==404)throw e}}}catch(e){error.value=e.response?.data?.detail||'We could not load this order.'}finally{loading.value=false}}async function act(type,fn){actionPending.value=type;actionMessage.value='';actionError.value=false;try{return await fn()}catch(e){actionMessage.value=e.response?.data?.detail||'That action could not be completed.';actionError.value=true;throw e}finally{actionPending.value=''}}
+async function pay(){try{const {data}=await act('pay',()=>createCheckoutSession(order.value.id));sessionStorage.setItem('pending_order_id',String(order.value.id));window.location.href=data.checkout_url}catch{}}
+async function cancel(){try{const {data}=await act('cancel',()=>cancelOrder(order.value.id));order.value=data;actionMessage.value='Order cancelled and reserved stock released.'}catch{}}
+async function reorder(){try{const {data}=await act('reorder',()=>reorderOrder(order.value.id));await fetchCart();actionMessage.value=data.added_count?`${data.added_count} available ${data.added_count===1?'item':'items'} added to your cart.`:'These items are currently unavailable.';if(data.added_count)setTimeout(()=>router.push('/cart'),700)}catch{}}
+async function requestReturn(){try{const {data}=await act('return',()=>createReturnRequest(order.value.id,{...returnForm}));returnStatus.value=data.status;showReturn.value=false;actionMessage.value='Return request sent. Support will review it shortly.'}catch{}}
+async function receipt(){try{const {data}=await act('receipt',()=>downloadOrderReceipt(order.value.id));const url=URL.createObjectURL(data);const link=document.createElement('a');link.href=url;link.download=`${order.value.order_number}-receipt.html`;link.click();URL.revokeObjectURL(url)}catch{}}
+onMounted(load)
 </script>
+<style scoped>
+.detail-page{min-height:100vh;background:#f4f1e8;color:#173f34;padding:1.25rem 1rem 7rem}.detail-page>header{display:flex;align-items:center;gap:1rem;margin-bottom:1rem}.detail-page header button{width:2.75rem;height:2.75rem;border:1px solid #d8d4c8;border-radius:50%;background:#fffdf7;color:#173f34;font-size:1.2rem}.detail-page header span,.kicker{font-size:.62rem;font-weight:900;letter-spacing:.17em;color:#738079}.detail-page h1{margin:.1rem 0;font:700 1.6rem Georgia,serif}.panel,.status-card,.state-card{margin-top:.85rem;padding:1.1rem;border-radius:1.4rem;background:#fffdf7;box-shadow:0 9px 28px rgba(23,63,52,.06)}.state-card{text-align:center}.state-card button{border:0;border-radius:999px;background:#173f34;padding:.7rem 1rem;color:#e1f56c;font-weight:900}.status-card{display:flex;gap:1rem;align-items:center;background:#173f34;color:#fffdf7}.status-dot{width:3.2rem;height:3.2rem;flex:none;border-radius:50%;background:#dff263;box-shadow:inset 0 0 0 .7rem rgba(23,63,52,.15)}.status-cancelled{background:#e4c0ba}.status-card small{font-size:.6rem;letter-spacing:.15em;color:#b9c9c3}.status-card h2{margin:.25rem 0;font:700 1.45rem Georgia,serif}.status-card p{margin:0;color:#ced8d4;font-size:.76rem;line-height:1.45}.panel>h2{margin:.2rem 0 1rem;font:700 1.25rem Georgia,serif}.timeline{list-style:none;margin:0;padding:0}.timeline li{display:flex;gap:.75rem;padding-bottom:.85rem}.timeline li>span{width:.7rem;height:.7rem;margin-top:.2rem;border-radius:50%;background:#dff263;box-shadow:0 0 0 4px #edf5ca}.timeline li div{display:grid}.timeline small,.timeline p{margin:.2rem 0;color:#77817d;font-size:.67rem}.line-item{display:grid;grid-template-columns:3.1rem minmax(0,1fr) auto;align-items:center;gap:.7rem;padding:.8rem 0;border-top:1px solid #e9e5da}.item-mark{width:3rem;height:3rem;display:grid;place-items:center;border-radius:.9rem;background:#e4e8df;font:700 1.2rem Georgia,serif}.line-item>div:nth-child(2){display:grid;gap:.25rem;min-width:0}.line-item span{color:#738079;font-size:.68rem}.line-item b{font-size:.8rem}.split{display:grid;gap:1rem}.split p{margin:.4rem 0;font-weight:900}.split address,.split small{color:#68756f;font-size:.76rem;font-style:normal;line-height:1.5}.split code{font-size:.72rem}.totals>div{display:flex;justify-content:space-between;padding:.4rem 0}.totals .grand{margin-top:.4rem;padding-top:.8rem;border-top:1px solid #e9e5da;font:700 1.15rem Georgia,serif}.totals>small{display:block;margin-top:.6rem;color:#77817d}.actions{display:grid;gap:.6rem;margin-top:1rem}.actions button,.return-form button{border:1px solid #173f34;border-radius:999px;background:transparent;padding:.85rem;color:#173f34;font-weight:900}.primary{border:0!important;background:#173f34!important;color:#e1f56c!important}.action-message{margin:1rem 0 0;border-radius:1rem;background:#dcebe5;padding:.8rem;color:#173f34;font-size:.76rem}.action-message.error{background:#f3d9d4;color:#9d3434}.return-form label{display:grid;gap:.35rem;margin-top:.8rem;color:#5f6c67;font-size:.72rem;font-weight:900}.return-form select,.return-form textarea{border:1px solid #d8d4c8;border-radius:.8rem;background:white;padding:.75rem;color:#173f34}.return-form textarea{min-height:5rem;resize:vertical}.return-form button{width:100%;margin-top:1rem}@media(min-width:720px){.detail-page{max-width:720px;margin:auto}.split{grid-template-columns:1fr 1fr}}
+.totals .discount{color:#47704d}.return-status{margin:1rem 0 0;border-radius:1rem;background:#dcebe5;padding:.8rem;color:#173f34;font-size:.76rem;text-transform:capitalize}
+.split a{display:inline-block;margin-top:.25rem;color:#173f34;font-size:.75rem;font-weight:900;text-decoration:underline;text-underline-offset:3px}.split a+small{display:block;margin-top:.4rem}
+@media(min-width:720px){.detail-page{max-width:980px;margin:auto;padding:3rem 1rem 5rem}.actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>

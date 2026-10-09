@@ -1,114 +1,18 @@
 <template>
-  <div>
-    <Navbar />
-    <div class="max-w-5xl mx-auto px-4 py-8">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">My Orders</h1>
-
-      <!-- Status Tabs -->
-      <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
-        <button v-for="s in statuses" :key="s.value"
-          @click="statusFilter = s.value; loadOrders()"
-          :class="statusFilter === s.value ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
-          class="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition">
-          {{ s.label }}
-        </button>
-      </div>
-
-      <!-- Orders List -->
-      <div v-if="orders.length === 0 && !loading" class="bg-white rounded-2xl shadow p-12 text-center">
-        <div class="text-5xl mb-4">📦</div>
-        <p class="text-gray-500">No orders yet</p>
-        <router-link to="/browse" class="text-primary font-semibold hover:underline mt-2 inline-block">Start Shopping →</router-link>
-      </div>
-
-      <div v-else class="space-y-4">
-        <div v-for="order in orders" :key="order.id"
-          class="bg-white rounded-2xl shadow p-6 hover:shadow-lg transition">
-          <div class="flex justify-between items-start">
-            <div>
-              <div class="flex items-center gap-3">
-                <span class="font-bold text-lg">#{{ order.order_number }}</span>
-                <el-tag :type="statusType(order.status)" size="small">{{ statusLabel(order.status) }}</el-tag>
-                <el-tag v-if="order.payment_status !== 'pending'" :type="order.payment_status === 'paid' ? 'success' : 'info'" size="small">
-                  {{ paymentLabel(order.payment_status) }}
-                </el-tag>
-              </div>
-              <p class="text-gray-500 text-sm mt-1">{{ formatDate(order.created_at) }} · {{ order.items?.length || 0 }} item(s)</p>
-            </div>
-            <div class="text-right">
-              <p class="text-xl font-bold text-primary">€{{ order.total_amount }}</p>
-              <router-link :to="`/my-orders/${order.id}`" class="text-primary text-sm font-semibold hover:underline">
-                View Details →
-              </router-link>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Pagination -->
-      <div v-if="total > pageSize" class="flex justify-center mt-6 gap-2">
-        <button v-if="page > 1" @click="page--; loadOrders()" class="px-4 py-2 bg-white rounded-lg hover:bg-gray-50">← Prev</button>
-        <span class="px-4 py-2 text-gray-500">Page {{ page }}</span>
-        <button v-if="orders.length === pageSize" @click="page++; loadOrders()" class="px-4 py-2 bg-white rounded-lg hover:bg-gray-50">Next →</button>
-      </div>
-    </div>
-    <Footer />
-  </div>
+  <div><Navbar/><main class="orders-page safe-top">
+    <header><button type="button" aria-label="Go back" @click="$router.back()">←</button><div><span>YOUR PURCHASES</span><h1>My orders</h1></div></header>
+    <div class="tabs" role="tablist" aria-label="Filter orders"><button v-for="tab in tabs" :key="tab.value" type="button" role="tab" :aria-selected="filter===tab.value" :class="{active:filter===tab.value}" @click="filter=tab.value">{{ tab.label }}</button></div>
+    <div v-if="loading" class="state-card" role="status">Loading your orders…</div><div v-else-if="error" class="state-card" role="alert"><h2>Orders are unavailable</h2><p>{{ error }}</p><button type="button" @click="load">Try again</button></div><div v-else-if="!filteredOrders.length" class="state-card"><span class="empty-mark">b.</span><h2>{{ orders.length?'No orders in this status':'No orders yet' }}</h2><p>{{ orders.length?'Choose another filter to see more.':'Your future finds will appear here.' }}</p><router-link v-if="!orders.length" to="/browse">Start shopping</router-link></div>
+    <section v-else class="order-list" aria-live="polite"><router-link v-for="order in filteredOrders" :key="order.id" :to="`/my-orders/${order.id}`" class="order-card"><div class="order-top"><div><span>{{ formatDate(order.created_at) }}</span><h2>{{ order.order_number }}</h2></div><em :class="`status-${order.status}`">{{ statusLabel(order.status) }}</em></div><div class="item-preview"><span v-for="item in order.items?.slice(0,3)" :key="item.id">{{ (item.product_title_en||item.product_title||'Item').slice(0,1) }}</span><p><strong>{{ order.items?.length||0 }} {{ order.items?.length===1?'piece':'pieces' }}</strong><small>{{ itemNames(order) }}</small></p></div><footer><span>{{ nextStep(order) }}</span><strong>€{{ money(order.total_amount) }} →</strong></footer></router-link></section>
+  </main><Footer/></div>
 </template>
-
 <script setup>
-import { ref, onMounted } from 'vue'
-import Navbar from '../components/Navbar.vue'
-import Footer from '../components/Footer.vue'
-import { getMyOrders } from '../api'
-
-const orders = ref([])
-const loading = ref(false)
-const page = ref(1)
-const pageSize = 20
-const total = ref(0)
-const statusFilter = ref('')
-
-const statuses = [
-  { value: '', label: 'All' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'paid', label: 'Paid' },
-  { value: 'shipped', label: 'Shipped' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-]
-
-const statusLabel = (s) => ({
-  pending: 'Pending', paid: 'Paid', shipped: 'Shipped',
-  completed: 'Completed', cancelled: 'Cancelled',
-}[s] || s)
-
-const statusType = (s) => ({
-  pending: 'warning', paid: 'success', shipped: 'info',
-  completed: '', cancelled: 'danger',
-}[s] || '')
-
-const paymentLabel = (s) => ({
-  pending: 'Payment Pending', paid: 'Paid', failed: 'Payment Failed',
-  requires_action: 'Action Required', refunded: 'Refunded',
-}[s] || s)
-
-const formatDate = (d) => d ? new Date(d).toLocaleString('zh-CN') : '-'
-
-const loadOrders = async () => {
-  loading.value = true
-  try {
-    const params = { page: page.value, page_size: pageSize }
-    if (statusFilter.value) params.status = statusFilter.value
-    const res = await getMyOrders(params)
-    orders.value = res.data.items
-    total.value = res.data.total
-  } catch (e) {
-    console.error('Failed to load orders:', e)
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(() => loadOrders())
+import {computed,onMounted,ref} from 'vue';import {getMyOrders} from '../api';import Navbar from '../components/Navbar.vue';import Footer from '../components/Footer.vue'
+const orders=ref([]),loading=ref(true),error=ref(''),filter=ref('all');const tabs=[{value:'all',label:'All'},{value:'pending',label:'To pay'},{value:'paid',label:'Processing'},{value:'shipped',label:'On the way'},{value:'completed',label:'Complete'}]
+const filteredOrders=computed(()=>filter.value==='all'?orders.value:orders.value.filter(o=>o.status===filter.value));const statusLabel=s=>({pending:'Payment due',paid:'Preparing',shipped:'On the way',completed:'Delivered',cancelled:'Cancelled',refunded:'Refunded'}[s]||s);const nextStep=o=>({pending:'Complete payment',paid:'We are preparing your order',shipped:o.tracking_number?'Tracking available':'Your parcel is on the way',completed:'Return window details inside',cancelled:'Order closed'}[o.status]||'View details');const money=v=>Number(v||0).toFixed(2);const formatDate=v=>new Intl.DateTimeFormat('en',{day:'numeric',month:'short',year:'numeric'}).format(new Date(v));const itemNames=o=>(o.items||[]).map(i=>i.product_title_en||i.product_title).filter(Boolean).slice(0,2).join(' · ')
+async function load(){loading.value=true;error.value='';try{orders.value=(await getMyOrders({page:1,page_size:100})).data.items||[]}catch(e){error.value=e.response?.data?.detail||'We could not load your orders.'}finally{loading.value=false}}onMounted(load)
 </script>
+<style scoped>
+.orders-page{min-height:100vh;background:#f4f1e8;color:#173f34;padding:1.25rem 1rem 7rem}.orders-page>header{display:flex;align-items:center;gap:1rem}.orders-page header button{width:2.75rem;height:2.75rem;border:1px solid #d8d4c8;border-radius:50%;background:#fffdf7;color:#173f34;font-size:1.2rem}.orders-page header span{font-size:.64rem;font-weight:900;letter-spacing:.18em;color:#708078}.orders-page h1{margin:.1rem 0;font:700 2rem Georgia,serif}.tabs{display:flex;gap:.45rem;overflow:auto;margin:1.2rem 0}.tabs button{white-space:nowrap;border:1px solid #d8d4c8;border-radius:999px;background:transparent;padding:.58rem .75rem;color:#173f34;font-size:.7rem;font-weight:800}.tabs button.active{border-color:#173f34;background:#173f34;color:#e1f56c}.state-card{padding:2.4rem 1.25rem;border-radius:1.5rem;background:#fffdf7;text-align:center}.state-card h2{font:700 1.4rem Georgia,serif}.state-card p{color:#6d7974}.state-card button,.state-card a{display:inline-block;border:0;border-radius:999px;background:#173f34;padding:.7rem 1rem;color:#e1f56c;font-weight:900}.empty-mark{font:700 3rem Georgia,serif;color:#aabb65}.order-list{display:grid;gap:.85rem}.order-card{display:block;padding:1rem;border-radius:1.35rem;background:#fffdf7;color:#173f34;box-shadow:0 9px 28px rgba(23,63,52,.06)}.order-top{display:flex;justify-content:space-between;gap:1rem}.order-top span{font-size:.64rem;color:#78827e}.order-top h2{margin:.2rem 0;font-size:.86rem}.order-top em{align-self:start;border-radius:999px;padding:.34rem .55rem;background:#e8e6dd;font-size:.6rem;font-style:normal;font-weight:900}.order-top .status-pending{background:#fff0c9;color:#754b00}.order-top .status-paid,.order-top .status-shipped{background:#dbece7}.order-top .status-completed{background:#dff263}.item-preview{display:flex;align-items:center;margin:.9rem 0}.item-preview>span{width:2.7rem;height:2.7rem;display:grid;place-items:center;margin-right:-.35rem;border:3px solid #fffdf7;border-radius:50%;background:#dfe4dc;font:700 1rem Georgia,serif}.item-preview p{display:grid;margin:0 0 0 .8rem;min-width:0}.item-preview small{overflow:hidden;color:#75807c;text-overflow:ellipsis;white-space:nowrap}.order-card footer{display:flex;justify-content:space-between;gap:1rem;padding-top:.75rem;border-top:1px solid #e9e5da;font-size:.72rem}.order-card footer span{color:#65726d}.order-card footer strong{white-space:nowrap;font-size:.85rem}@media(min-width:720px){.orders-page{max-width:720px;margin:auto}}
+@media(min-width:720px){.orders-page{max-width:980px;margin:auto;padding:3rem 1rem 5rem}.order-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>

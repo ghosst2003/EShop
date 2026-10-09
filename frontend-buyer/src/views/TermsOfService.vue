@@ -40,21 +40,21 @@
         <section class="mb-8">
           <h2 class="text-xl font-bold text-gray-800 mb-3">4. Payment Terms</h2>
           <p class="text-gray-600 leading-relaxed">
-            All prices are displayed in EUR and include applicable VAT. Payment is processed through our secure payment gateway. BeCool Market holds payment in escrow until the buyer confirms receipt of the item or the buyer protection period expires.
+            All prices are displayed in EUR. Applicable tax, delivery charges, discounts and the final payable total are shown before payment. Card payments are processed by our secure payment provider, and an order is confirmed after payment succeeds.
           </p>
         </section>
 
         <section class="mb-8">
           <h2 class="text-xl font-bold text-gray-800 mb-3">5. Shipping & Delivery</h2>
           <p class="text-gray-600 leading-relaxed">
-            Shipping is the responsibility of the seller. All items must be shipped within 3 business days of payment confirmation. Tracking information must be provided. Buyers should inspect items within 14 days of delivery and report any issues immediately.
+            Available delivery methods, charges and estimates are shown during checkout. When tracking is available, it appears in the buyer's order details. Delivery estimates are not guaranteed and may be affected by the carrier.
           </p>
         </section>
 
         <section class="mb-8">
           <h2 class="text-xl font-bold text-gray-800 mb-3">6. Returns & Refunds</h2>
           <p class="text-gray-600 leading-relaxed">
-            Returns are accepted within 14 days of delivery if the item does not match the listing description. The buyer must contact the seller through the Platform's messaging system. Refunds are processed within 5 business days after the item is returned and verified.
+            The return policy and eligible return window are shown with the product and order. Eligible buyers can submit a return request from the order details page. Approved refunds are returned through the original payment method, subject to payment-provider processing times.
           </p>
         </section>
 

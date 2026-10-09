@@ -1,348 +1,304 @@
 <template>
-  <div>
-    <Navbar />
-    <div class="max-w-4xl mx-auto px-4 py-8">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">Checkout</h1>
-
-      <!-- Step Indicator -->
-      <div class="flex items-center gap-4 mb-8">
-        <div :class="step >= 1 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'" class="w-10 h-10 rounded-full flex items-center justify-center font-bold">1</div>
-        <div class="flex-1 h-1" :class="step > 1 ? 'bg-primary' : 'bg-gray-200'"></div>
-        <div :class="step >= 2 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'" class="w-10 h-10 rounded-full flex items-center justify-center font-bold">2</div>
-        <div class="flex-1 h-1" :class="step > 2 ? 'bg-primary' : 'bg-gray-200'"></div>
-        <div :class="step >= 3 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'" class="w-10 h-10 rounded-full flex items-center justify-center font-bold">3</div>
+  <div><Navbar /><div class="checkout-page">
+    <header class="checkout-header safe-top">
+      <div class="header-inner">
+        <button type="button" class="back-button" aria-label="Go back" @click="router.back()">←</button>
+        <div>
+          <span class="eyebrow">SECURE CHECKOUT</span>
+          <h1>Finish your order</h1>
+        </div>
+        <span class="step-pill">1 / 1</span>
       </div>
+    </header>
 
-      <!-- Step 1: Shipping Address -->
-      <div v-if="step === 1">
-        <div class="bg-white rounded-2xl shadow p-6">
-          <h2 class="font-bold text-lg mb-4">Shipping Address</h2>
+    <main class="checkout-shell">
+      <div v-if="error" class="message error" role="alert">{{ error }}</div>
+      <div v-if="loading" class="loading-card" aria-live="polite">Preparing checkout…</div>
 
-          <div v-if="addresses.length > 0" class="space-y-3 mb-4">
-            <label v-for="addr in addresses" :key="addr.id"
-              class="flex items-start gap-4 p-4 border rounded-xl cursor-pointer hover:border-orange-300 transition"
-              :class="selectedAddress === addr.id ? 'border-orange-400 bg-orange-50' : ''">
-              <input type="radio" :value="addr.id" v-model="selectedAddress" class="mt-1 accent-orange" />
-              <div>
-                <div class="font-semibold">{{ addr.recipient_name }}
-                  <span v-if="addr.is_default" class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded ml-1">Default</span>
-                </div>
-                <div class="text-gray-500 text-sm">{{ addr.street_address }}, {{ addr.city }}, {{ addr.postal_code }}</div>
-                <div class="text-gray-400 text-sm">{{ addr.country }} · {{ addr.phone }}</div>
-              </div>
+      <template v-else>
+        <section class="checkout-card">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">DELIVERY</span>
+              <h2>Shipping address</h2>
+            </div>
+            <button v-if="addresses.length" type="button" class="text-button" @click="showAddressForm = !showAddressForm">
+              {{ showAddressForm ? 'Close' : 'Add new' }}
+            </button>
+          </div>
+
+          <div v-if="addresses.length" class="address-list">
+            <label v-for="address in addresses" :key="address.id" class="address-option" :class="{ selected: selectedAddressId === address.id }">
+              <input v-model="selectedAddressId" type="radio" name="shipping-address" :value="address.id" />
+              <span>
+                <strong>{{ address.recipient_name }}</strong>
+                <small>{{ address.street_address }}, {{ address.city }}, {{ address.postal_code }}</small>
+                <small>{{ countryName(address.country) }} · {{ address.phone }}</small>
+              </span>
+              <em v-if="address.is_default">Default</em>
             </label>
           </div>
 
-          <p v-if="addresses.length === 0" class="text-gray-500 mb-4">No saved addresses. Fill in the form below:</p>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-              <input v-model="addressForm.name" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-orange-400 outline-none" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
-              <input v-model="addressForm.phone" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-orange-400 outline-none" />
-            </div>
-            <div class="col-span-2">
-              <label class="block text-sm font-medium text-gray-700 mb-1">Address *</label>
-              <textarea v-model="addressForm.address" rows="3" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-orange-400 outline-none"></textarea>
-            </div>
-          </div>
-
-          <button @click="goToStep(2)" :disabled="!canProceedAddress"
-            class="mt-6 w-full bg-primary text-white font-bold py-3 rounded-xl hover:bg-primary-light transition disabled:opacity-50">
-            Continue to Review
-          </button>
-        </div>
-      </div>
-
-      <!-- Step 2: Order Review -->
-      <div v-if="step === 2">
-        <div class="bg-white rounded-2xl shadow p-6 mb-6">
-          <h2 class="font-bold text-lg mb-4">Order Summary</h2>
-
-          <div class="divide-y">
-            <div v-for="item in cartItems" :key="item.id" class="flex justify-between py-3">
-              <span>{{ (item.product?.title_en || item.product?.title) }} × {{ item.quantity }}</span>
-              <span class="font-semibold">€{{ getItemTotal(item) }}</span>
-            </div>
-          </div>
-
-          <!-- Shipping Method Selection -->
-          <div class="mt-6">
-            <h3 class="font-semibold text-gray-700 mb-3">Shipping Method</h3>
-            <div v-if="shippingLoading" class="text-gray-400 text-sm">Loading shipping options...</div>
-            <div v-else-if="shippingOptions.length === 0" class="text-gray-400 text-sm">No shipping options available for your location.</div>
-            <div v-else class="space-y-2">
-              <label v-for="(opt, idx) in shippingOptions" :key="idx"
-                class="flex items-center justify-between p-4 border rounded-xl cursor-pointer hover:border-orange-300 transition"
-                :class="selectedShipping === idx ? 'border-orange-400 bg-orange-50' : ''">
-                <div class="flex items-center gap-3">
-                  <input type="radio" :value="idx" v-model="selectedShipping" class="accent-orange" />
-                  <div>
-                    <div class="font-semibold">{{ opt.shipping_method }}</div>
-                    <div v-if="opt.is_default" class="text-xs text-gray-400">Default option</div>
-                  </div>
-                </div>
-                <div class="font-bold text-primary">€{{ Number(opt.price).toFixed(2) }}</div>
-              </label>
-            </div>
-          </div>
-
-          <!-- Total -->
-          <div class="flex justify-between mt-4 pt-4 border-t text-lg font-bold">
-            <span>
-              Subtotal
-              <span v-if="currentShippingPrice > 0" class="text-sm font-normal text-gray-400 ml-2">+ Shipping €{{ currentShippingPrice.toFixed(2) }}</span>
-            </span>
-            <span class="text-primary">€{{ grandTotal.toFixed(2) }}</span>
-          </div>
-
-          <div class="mt-4 p-4 bg-gray-50 rounded-lg">
-            <p class="font-semibold text-sm">Shipping to:</p>
-            <p class="text-gray-600 text-sm">{{ shippingAddress }}</p>
-            <p v-if="destinationCountry" class="text-gray-400 text-xs mt-1">
-              Destination country: {{ destinationCountry }}
-              <span v-if="detectedCountry && detectedCountry !== destinationCountry" class="ml-1">(auto-detected)</span>
-            </p>
-          </div>
-
-          <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-            <textarea v-model="notes" rows="2" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-orange-400 outline-none" placeholder="Any special instructions..."></textarea>
-          </div>
-        </div>
-
-        <div class="flex gap-4">
-          <button @click="step = 1" class="flex-1 border border-gray-300 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-50 transition">
-            Back
-          </button>
-          <button @click="placeOrder" :disabled="placing || shippingOptions.length === 0 && !selectedShipping"
-            class="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:bg-primary-light transition disabled:opacity-50">
-            {{ placing ? 'Placing Order...' : 'Place Order' }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Step 3: Order Placed -->
-      <div v-if="step === 3 && createdOrder">
-        <div class="bg-white rounded-2xl shadow p-12 text-center">
-          <div class="text-5xl mb-4">🎉</div>
-          <h2 class="text-2xl font-bold text-gray-900 mb-2">Order Placed!</h2>
-          <p class="text-gray-500 mb-6">Order #{{ createdOrder.order_number }}</p>
-
-          <div class="bg-gray-50 rounded-xl p-4 mb-6 inline-block">
-            <p class="text-sm text-gray-600">Total: <span class="font-bold text-primary text-lg">€{{ createdOrder.total_amount }}</span></p>
-          </div>
-
-          <div class="flex gap-4 justify-center">
-            <button v-if="createdOrder.payment_method === 'stripe'"
-              @click="payNow" :disabled="paying"
-              class="bg-primary text-white font-bold px-8 py-3 rounded-xl hover:bg-primary-light transition disabled:opacity-50">
-              {{ paying ? 'Redirecting...' : 'Pay Now →' }}
+          <form v-if="showAddressForm || !addresses.length" class="address-form" @submit.prevent="saveAddress">
+            <label>
+              <span>Full name</span>
+              <input v-model.trim="addressForm.recipient_name" autocomplete="name" required />
+            </label>
+            <label>
+              <span>Phone</span>
+              <input v-model.trim="addressForm.phone" type="tel" autocomplete="tel" required />
+            </label>
+            <label class="wide">
+              <span>Street address</span>
+              <input v-model.trim="addressForm.street_address" autocomplete="street-address" required />
+            </label>
+            <label>
+              <span>City</span>
+              <input v-model.trim="addressForm.city" autocomplete="address-level2" required />
+            </label>
+            <label>
+              <span>Postal code</span>
+              <input v-model.trim="addressForm.postal_code" autocomplete="postal-code" required />
+            </label>
+            <label class="wide">
+              <span>Country</span>
+              <select v-model="addressForm.country" autocomplete="country" required>
+                <option value="" disabled>Select country</option>
+                <option v-for="country in countries" :key="country.code" :value="country.code">
+                  {{ country.flag_emoji }} {{ country.name_en || country.name }}
+                </option>
+              </select>
+            </label>
+            <label class="default-check wide">
+              <input v-model="addressForm.is_default" type="checkbox" />
+              <span>Use as my default address</span>
+            </label>
+            <button type="submit" class="save-address" :disabled="savingAddress">
+              {{ savingAddress ? 'Saving…' : 'Save and use this address' }}
             </button>
-            <router-link :to="`/my-orders/${createdOrder.id}`"
-              class="border border-gray-300 text-gray-700 font-bold px-8 py-3 rounded-xl hover:bg-gray-50 transition">
-              View Order
-            </router-link>
+          </form>
+        </section>
+
+        <section class="checkout-card">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">YOUR ORDER</span>
+              <h2>{{ selectedUnits }} {{ selectedUnits === 1 ? 'item' : 'items' }}</h2>
+            </div>
+            <router-link to="/cart" class="text-button">Edit bag</router-link>
           </div>
-        </div>
+          <div class="order-lines">
+            <div v-for="item in selectedItems" :key="item.id || item.product_id" class="order-line">
+              <img v-if="item.product?.images?.[0]" :src="item.product.images[0].thumbnail_url || item.product.images[0].image_url" :alt="item.product.title_en || item.product.title" />
+              <span>
+                <strong>{{ item.product?.title_en || item.product?.title }}</strong>
+                <small>Qty {{ item.quantity }}</small>
+              </span>
+              <b>€{{ money(Number(item.product?.sale_price) * item.quantity) }}</b>
+            </div>
+          </div>
+          <div class="totals">
+            <div><span>Subtotal</span><strong>€{{ money(selectedTotal) }}</strong></div>
+            <div v-if="promoDiscount" class="promo-total"><span>{{ promotion?.label || couponCode }} promotion</span><strong>−€{{ money(promoDiscount) }}</strong></div>
+            <div>
+              <span>Standard delivery</span>
+              <strong v-if="shippingLoading">Calculating…</strong>
+              <strong v-else>€{{ money(shippingTotal) }}</strong>
+            </div>
+            <div><span>Tax</span><strong>Included where applicable</strong></div>
+            <div class="grand-total"><span>Total</span><strong>€{{ money(grandTotal) }}</strong></div>
+          </div>
+          <p v-if="shippingError" class="inline-note">{{ shippingError }}</p>
+        </section>
+
+        <section class="checkout-card payment-card">
+          <span class="eyebrow">PAYMENT</span>
+          <h2>Secure card checkout</h2>
+          <p>You’ll continue to Stripe to pay by card. Your order is confirmed only after payment succeeds.</p>
+          <div class="secure-row"><span aria-hidden="true">✓</span> Encrypted payment · No card details stored here</div>
+        </section>
+
+        <label class="terms-row">
+          <input v-model="termsAccepted" type="checkbox" />
+          <span>I agree to the <router-link to="/terms">terms</router-link> and <router-link to="/terms">return policy</router-link>.</span>
+        </label>
+      </template>
+    </main>
+
+    <footer v-if="!loading && selectedItems.length" class="checkout-footer safe-bottom">
+      <div class="footer-inner">
+        <div><span>Total</span><strong>€{{ money(grandTotal) }}</strong></div>
+        <button type="button" :disabled="!canPay || placing" @click="placeOrder">
+          {{ placing ? 'Opening secure payment…' : 'Continue to payment' }} <span aria-hidden="true">→</span>
+        </button>
       </div>
-    </div>
-    <Footer />
-  </div>
+    </footer>
+  </div></div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import Navbar from '../components/Navbar.vue'
-import Footer from '../components/Footer.vue'
+import {
+  createAddress,
+  createCheckoutSession,
+  createOrder,
+  getAddresses,
+  getCartShippingEstimate,
+  getCountries,
+  validatePromotion,
+} from '../api'
 import { useCart } from '../composables/useCart'
-import { useAuth } from '../composables/useAuth'
 import { useLocation } from '../composables/useLocation'
-import { getAddresses, createOrder, createCheckoutSession, getShippingOptions, getCountries, calculateShipping } from '../api'
+import Navbar from '../components/Navbar.vue'
 
 const router = useRouter()
-const { user } = useAuth()
-const { items: cartItems, total: cartTotal, clearCart } = useCart()
-const { initLocation, countryCode: detectedCountry } = useLocation()
+const { selectedItems, selectedTotal, selectedUnits, fetchServer } = useCart()
+const { countryCode, initLocation } = useLocation()
 
-const step = ref(1)
+const loading = ref(true)
+const error = ref('')
 const addresses = ref([])
-const selectedAddress = ref(null)
-const addressForm = ref({ name: '', phone: '', address: '' })
-const notes = ref('')
-const placing = ref(false)
-const paying = ref(false)
-const createdOrder = ref(null)
-
-// Shipping
-const shippingOptions = ref([])
-const selectedShipping = ref(null)
+const countries = ref([])
+const selectedAddressId = ref(null)
+const showAddressForm = ref(false)
+const savingAddress = ref(false)
 const shippingLoading = ref(false)
-const destinationCountry = ref('')
-
-const canProceedAddress = computed(() => {
-  return selectedAddress.value || (addressForm.value.name && addressForm.value.phone && addressForm.value.address)
+const shippingTotal = ref(0)
+const shippingError = ref('')
+const authoritativeTotal = ref(null)
+const termsAccepted = ref(false)
+const placing = ref(false)
+const createdOrderId = ref(null)
+const checkoutAttemptKey = ref(sessionStorage.getItem('esh_checkout_idempotency_key') || crypto.randomUUID())
+sessionStorage.setItem('esh_checkout_idempotency_key', checkoutAttemptKey.value)
+const couponCode = ref(sessionStorage.getItem('esh_promo_code') || '')
+const promotion = ref(null)
+const addressForm = reactive({
+  recipient_name: '',
+  phone: '',
+  street_address: '',
+  city: '',
+  postal_code: '',
+  country: '',
+  is_default: false,
 })
 
-const shippingAddress = computed(() => {
-  if (selectedAddress.value) {
-    const addr = addresses.value.find(a => a.id === selectedAddress.value)
-    return addr ? `${addr.recipient_name}, ${addr.street_address}, ${addr.city}, ${addr.postal_code}, ${addr.country}` : ''
-  }
-  return `${addressForm.value.name}, ${addressForm.value.address}, ${addressForm.value.phone}`
-})
+const selectedAddress = computed(() => addresses.value.find(address => address.id === selectedAddressId.value))
+const destinationCountry = computed(() => selectedAddress.value?.country || addressForm.country || countryCode.value || '')
+const promoDiscount = computed(() => Number(promotion.value?.discount_amount || 0))
+const discountedSubtotal = computed(() => Number(selectedTotal.value) - promoDiscount.value)
+const grandTotal = computed(() => authoritativeTotal.value ?? (discountedSubtotal.value + Number(shippingTotal.value)))
+const canPay = computed(() => Boolean(
+  selectedAddressId.value
+  && selectedItems.value.length
+  && termsAccepted.value
+  && !shippingLoading.value
+  && !shippingError.value
+))
 
-const currentShippingPrice = computed(() => {
-  if (selectedShipping.value !== null && shippingOptions.value[selectedShipping.value]) {
-    return Number(shippingOptions.value[selectedShipping.value].price)
-  }
-  return 0
-})
+const money = value => Number(value || 0).toFixed(2)
+const countryName = code => countries.value.find(country => country.code === code)?.name_en || code
 
-const grandTotal = computed(() => {
-  return cartTotal.value + currentShippingPrice.value
-})
-
-const getItemTotal = (item) => {
-  const price = item.product?.sale_price || 0
-  return (price * (item.quantity || 1)).toFixed(2)
-}
-
-const goToStep = async (s) => {
-  step.value = s
-  // 进入第2步时加载运费选项
-  if (s === 2) {
-    await loadShippingOptions()
-  }
-}
-
-const loadShippingOptions = async () => {
-  if (!cartItems.value.length) return
-
-  // 确定目的地国家
-  let country = ''
-  if (selectedAddress.value) {
-    const addr = addresses.value.find(a => a.id === selectedAddress.value)
-    if (addr) country = addr.country.substring(0, 2).toUpperCase()
-  }
-  if (!country && addressForm.value.address) {
-    const parts = addressForm.value.address.split(',')
-    country = parts[parts.length - 1].trim().substring(0, 2).toUpperCase()
-  }
-  // 使用检测到的国家作为兜底
-  if (!country && detectedCountry.value) {
-    country = detectedCountry.value
-  }
-
-  destinationCountry.value = country
-  if (!country) {
-    shippingOptions.value = []
-    return
-  }
-
+const loadShipping = async () => {
+  if (!destinationCountry.value || !selectedItems.value.length) return
   shippingLoading.value = true
+  shippingError.value = ''
+  authoritativeTotal.value = null
   try {
-    // 为每个商品获取运费选项，合并取最便宜的
-    const allOptions = {}
-    for (const ci of cartItems.value) {
-      if (!ci.product) continue
-      try {
-        const productSlug = ci.product.slug
-        if (!productSlug) continue
-        const res = await getShippingOptions(productSlug, country)
-        const options = res.data
-        if (options.length > 0) {
-          for (const opt of options) {
-            if (!allOptions[opt.shipping_method]) {
-              allOptions[opt.shipping_method] = {
-                shipping_method: opt.shipping_method,
-                total_price: 0,
-                is_default: opt.is_default,
-              }
-            }
-            allOptions[opt.shipping_method].total_price += Number(opt.price) * (ci.quantity || 1)
-          }
-        }
-      } catch (e) {
-        console.error(`Failed to get shipping for product ${ci.product_id}:`, e)
-      }
-    }
-
-    shippingOptions.value = Object.values(allOptions).sort((a, b) => a.total_price - b.total_price)
-
-    // 默认选择第一个选项
-    if (shippingOptions.value.length > 0) {
-      selectedShipping.value = 0
-    }
-  } catch (e) {
-    console.error('Failed to load shipping options', e)
+    const response = await getCartShippingEstimate(
+      destinationCountry.value,
+      selectedItems.value.map(item => item.product_id),
+    )
+    shippingTotal.value = Number(response.data.shipping_total || 0)
+  } catch (requestError) {
+    shippingTotal.value = 0
+    shippingError.value = requestError.response?.data?.detail || 'Delivery could not be calculated for this address.'
   } finally {
     shippingLoading.value = false
   }
 }
 
-const placeOrder = async () => {
-  if (selectedShipping.value === null || !shippingOptions.value.length) {
-    alert('Please select a shipping method')
-    return
-  }
-
-  placing.value = true
+const saveAddress = async () => {
+  savingAddress.value = true
+  error.value = ''
   try {
-    const opt = shippingOptions.value[selectedShipping.value]
-    const data = {}
-    if (selectedAddress.value) {
-      data.address_id = selectedAddress.value
-    } else {
-      data.buyer_name = addressForm.value.name
-      data.buyer_phone = addressForm.value.phone
-      data.buyer_address = addressForm.value.address
-    }
-    data.shipping_method = opt.shipping_method
-    data.shipping_price = Number(opt.price)
-    if (notes.value) data.notes = notes.value
+    const response = await createAddress({ ...addressForm, label: 'Home' })
+    addresses.value = [...addresses.value, response.data]
+    selectedAddressId.value = response.data.id
+    showAddressForm.value = false
+  } catch (requestError) {
+    error.value = requestError.response?.data?.detail || 'Could not save this address.'
+  } finally {
+    savingAddress.value = false
+  }
+}
 
-    const res = await createOrder(data)
-    createdOrder.value = res.data
-    step.value = 3
-    clearCart()
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Failed to create order')
+const placeOrder = async () => {
+  if (!canPay.value) return
+  placing.value = true
+  error.value = ''
+  try {
+    if (!createdOrderId.value) {
+      const orderResponse = await createOrder({
+        items: selectedItems.value.map(item => ({ product_id: item.product_id, quantity: item.quantity })),
+        address_id: selectedAddressId.value,
+        payment_method: 'stripe',
+        coupon_code: couponCode.value || undefined,
+        idempotency_key: checkoutAttemptKey.value,
+      })
+      createdOrderId.value = orderResponse.data.id
+      shippingTotal.value = Number(orderResponse.data.financials?.shipping_amount ?? orderResponse.data.shipping_price ?? 0)
+      authoritativeTotal.value = Number(orderResponse.data.total_amount)
+      sessionStorage.setItem('pending_order_id', String(orderResponse.data.id))
+      await fetchServer({ silent: true })
+    }
+    const paymentResponse = await createCheckoutSession(createdOrderId.value)
+    sessionStorage.removeItem('esh_checkout_idempotency_key')
+    window.location.assign(paymentResponse.data.checkout_url)
+  } catch (requestError) {
+    error.value = requestError.response?.data?.detail || 'Could not start secure payment. Your pending order is saved in My Orders.'
   } finally {
     placing.value = false
   }
 }
 
-const payNow = async () => {
-  paying.value = true
-  try {
-    const res = await createCheckoutSession(createdOrder.value.id)
-    window.location.href = res.data.checkout_url
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Payment failed to initialize')
-  } finally {
-    paying.value = false
-  }
-}
+watch(selectedAddressId, loadShipping)
 
 onMounted(async () => {
-  // Start location detection in background
-  initLocation()
-  if (cartItems.value.length === 0) {
-    router.push('/cart')
+  await initLocation()
+  await fetchServer({ silent: true }).catch(() => {})
+  if (!selectedItems.value.length) {
+    router.replace('/cart')
     return
   }
   try {
-    const res = await getAddresses()
-    addresses.value = res.data
-    const def = addresses.value.find(a => a.is_default)
-    if (def) selectedAddress.value = def.id
-  } catch (e) {
-    // not logged in or no addresses
+    const [addressResult, countryResult, promotionResult] = await Promise.all([
+      getAddresses(), getCountries(),
+      couponCode.value ? validatePromotion(couponCode.value, selectedTotal.value).catch(() => null) : Promise.resolve(null),
+    ])
+    addresses.value = addressResult.data || []
+    countries.value = countryResult.data || []
+    promotion.value = promotionResult?.data || null
+    if (couponCode.value && !promotion.value) {
+      couponCode.value = ''
+      sessionStorage.removeItem('esh_promo_code')
+    }
+    const defaultAddress = addresses.value.find(address => address.is_default) || addresses.value[0]
+    if (defaultAddress) selectedAddressId.value = defaultAddress.id
+    else {
+      showAddressForm.value = true
+      addressForm.country = countryCode.value || ''
+    }
+  } catch (requestError) {
+    error.value = requestError.response?.data?.detail || 'Could not prepare checkout.'
+  } finally {
+    loading.value = false
   }
 })
 </script>
+
+<style scoped>
+.checkout-page{min-height:100vh;padding-bottom:126px;background:#f5f2e9;color:#183f35}.checkout-header{position:sticky;top:0;z-index:40;border-bottom:1px solid rgba(23,72,59,.1);background:rgba(245,242,233,.95);backdrop-filter:blur(14px)}.header-inner{display:grid;grid-template-columns:48px 1fr 48px;align-items:center;max-width:760px;min-height:72px;margin:auto;padding:8px 14px}.back-button{width:44px;height:44px;border:1px solid #d8ded5;border-radius:50%;background:#fffdf8;font-size:20px}.eyebrow{display:block;color:#758177;font-size:9px;font-weight:850;letter-spacing:.18em}.header-inner h1,.checkout-card h2{margin:3px 0 0;font-family:Georgia,serif}.header-inner h1{font-size:21px}.step-pill{justify-self:end;color:#64756b;font-size:11px;font-weight:800}.checkout-shell{display:grid;gap:14px;max-width:760px;margin:auto;padding:16px 14px}.checkout-card{padding:18px;border:1px solid rgba(23,72,59,.09);border-radius:22px;background:#fffdf8;box-shadow:0 7px 24px rgba(31,59,48,.05)}.section-heading{display:flex;align-items:start;justify-content:space-between;gap:12px;margin-bottom:14px}.checkout-card h2{font-size:21px}.text-button{min-height:40px;display:inline-flex;align-items:center;color:#17483b;font-size:12px;font-weight:800;text-decoration:underline;text-underline-offset:3px}.address-list{display:grid;gap:9px}.address-option{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:start;padding:13px;border:1px solid #d9dfd6;border-radius:15px;cursor:pointer}.address-option.selected{border-color:#17483b;background:#f0f3e8}.address-option input{margin-top:3px;accent-color:#17483b}.address-option strong,.address-option small{display:block}.address-option strong{font-size:13px}.address-option small{margin-top:3px;color:#68776e;font-size:11px;line-height:1.4}.address-option em{padding:4px 7px;border-radius:999px;background:#d9f06a;font-size:9px;font-style:normal;font-weight:800}.address-form{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:14px;padding-top:14px;border-top:1px solid #e8ebe4}.address-form label{display:grid;gap:6px}.address-form label>span{font-size:11px;font-weight:750}.address-form .wide,.save-address{grid-column:1/-1}.address-form input:not([type=checkbox]),.address-form select{width:100%;min-height:46px;padding:0 12px;border:1px solid #d6ddd3;border-radius:12px;background:#fff;color:#183f35;font-size:13px}.default-check{grid-template-columns:20px 1fr!important;align-items:center}.default-check input{width:18px;height:18px;accent-color:#17483b}.save-address{min-height:48px;border-radius:999px;background:#e3ef86;color:#17483b;font-size:12px;font-weight:850}.order-lines{display:grid;gap:11px}.order-line{display:grid;grid-template-columns:54px 1fr auto;gap:11px;align-items:center}.order-line img{width:54px;height:64px;border-radius:10px;object-fit:cover}.order-line span strong,.order-line span small{display:block}.order-line span strong{font-family:Georgia,serif;font-size:14px}.order-line span small{margin-top:3px;color:#78857d;font-size:10px}.order-line b{font-family:Georgia,serif;font-size:15px}.totals{display:grid;gap:9px;margin-top:16px;padding-top:14px;border-top:1px solid #e7eae3}.totals div{display:flex;justify-content:space-between;color:#65756b;font-size:12px}.totals strong{color:#294b3f}.totals .promo-total,.totals .promo-total strong{color:#47704d}.totals .grand-total{padding-top:10px;border-top:1px solid #e7eae3;color:#183f35;font-size:16px;font-weight:800}.grand-total strong{font-family:Georgia,serif;font-size:23px}.inline-note,.payment-card p{color:#66766c;font-size:12px;line-height:1.55}.inline-note{margin:10px 0 0;color:#8a4a20}.secure-row{margin-top:13px;padding:11px;border-radius:13px;background:#eef3cb;font-size:11px;font-weight:750}.secure-row span{margin-right:7px}.terms-row{display:flex;align-items:start;gap:10px;padding:2px 5px;color:#607168;font-size:11px;line-height:1.45}.terms-row input{width:19px;height:19px;flex:none;accent-color:#17483b}.terms-row a{color:#17483b;font-weight:800;text-decoration:underline}.message,.loading-card{padding:14px;border-radius:14px;background:#fffdf8;font-size:13px}.message.error{border:1px solid #e4c2ac;background:#fff4eb;color:#74422b}.checkout-footer{position:fixed;right:0;bottom:0;left:0;z-index:50;border-top:1px solid rgba(23,72,59,.1);background:rgba(255,253,248,.96);box-shadow:0 -12px 34px rgba(31,59,48,.09);backdrop-filter:blur(14px)}.footer-inner{display:flex;max-width:760px;min-height:88px;margin:auto;padding:12px 14px;align-items:center;justify-content:space-between;gap:15px}.footer-inner>div span,.footer-inner>div strong{display:block}.footer-inner>div span{color:#718078;font-size:10px}.footer-inner>div strong{font-family:Georgia,serif;font-size:25px}.footer-inner button{min-height:52px;padding:0 20px;border-radius:999px;background:#17483b;color:#fffdf8;font-size:12px;font-weight:850}.footer-inner button:disabled{background:#9da8a2}.checkout-page button:focus-visible,.checkout-page a:focus-visible,.checkout-page input:focus-visible,.checkout-page select:focus-visible{outline:3px solid #d9f06a;outline-offset:2px}@media(max-width:480px){.address-form{grid-template-columns:1fr}.address-form .wide,.save-address{grid-column:auto}.footer-inner button{padding:0 16px}}
+@media(min-width:900px){.header-inner,.checkout-shell,.footer-inner{max-width:980px}.header-inner{min-height:92px;padding-inline:20px}.header-inner h1{font-size:28px}.checkout-shell{grid-template-columns:1.15fr .85fr;align-items:start;padding:28px 20px}.checkout-shell>.message,.checkout-shell>.loading-card,.checkout-shell>.terms-row{grid-column:1/-1}.checkout-card:first-of-type{grid-row:2/5}.checkout-card{padding:25px}.payment-card{grid-column:2}.checkout-footer{position:static}.footer-inner{justify-content:flex-end;padding:20px}.footer-inner>div{margin-right:auto}}
+</style>

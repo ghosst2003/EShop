@@ -17,6 +17,9 @@
             <li>IP addresses (anonymised in logs)</li>
             <li>Cookie consent preferences</li>
             <li>User-agent strings</li>
+            <li>Account and contact information you provide</li>
+            <li>Saved delivery addresses, cart, order and support records</li>
+            <li>Payment status and provider references (we do not store full card details)</li>
             <li>GDPR data request submissions (email, request type, free-text details)</li>
           </ul>
         </section>
@@ -33,7 +36,7 @@
 
         <section>
           <h2 class="text-xl font-bold text-gray-900 mb-3">4. Data Retention</h2>
-          <p>Cookie consent logs are retained for 24 months. GDPR data request records are retained for 36 months after resolution. No buyer accounts are created in v1, minimising personal data collection.</p>
+          <p>Cookie consent logs are retained for 24 months. GDPR data request records are retained for 36 months after resolution. Account, address, order and payment-reference data is retained only as long as needed to provide the service and meet legal obligations.</p>
         </section>
 
         <section>

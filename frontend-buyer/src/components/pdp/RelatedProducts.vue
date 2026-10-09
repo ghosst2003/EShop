@@ -25,11 +25,11 @@ const products = ref([])
 
 onMounted(async () => {
   try {
-    const params = { limit: 5 }
+    const params = { page: 1, page_size: 5 }
     if (props.categoryId) params.category_id = props.categoryId
 
     const { data } = await getProducts(params)
-    products.value = (data || []).filter(p => p.slug !== props.currentSlug)
+    products.value = (data.items || data || []).filter(p => p.slug !== props.currentSlug)
   } catch (e) {
     console.error('Failed to load related products:', e)
   }

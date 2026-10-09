@@ -1,0 +1,11 @@
+<template>
+  <main class="verify-page safe-top"><section><span class="brand">b.</span><span class="eyebrow">ONE QUICK CHECK</span><h1>Verify your email</h1><p v-if="!token">Open the verification link sent to your email. It is valid for 24 hours.</p><p v-else-if="loading">Confirming your email…</p><p v-else :class="{error}">{{ message }}</p><button v-if="token && error" type="button" @click="verify">Try again</button><router-link v-if="!loading" :to="error?'/login':destination">{{ error?'Back to sign in':'Continue to BeCool' }}</router-link></section></main>
+</template>
+<script setup>
+import { computed,onMounted,ref } from 'vue';import { useRoute } from 'vue-router';import { useAuth } from '../composables/useAuth'
+const route=useRoute(),{verifyEmail}=useAuth(),loading=ref(false),message=ref(''),error=ref(false);const token=computed(()=>typeof route.query.token==='string'?route.query.token:'');const destination=computed(()=>typeof route.query.redirect==='string'&&route.query.redirect.startsWith('/')&&!route.query.redirect.startsWith('//')?route.query.redirect:'/')
+async function verify(){loading.value=true;message.value='';error.value=false;try{await verifyEmail(token.value);message.value='Email verified. Your account is ready.'}catch(e){error.value=true;message.value=e.response?.data?.detail||'We could not verify this email.'}finally{loading.value=false}}onMounted(()=>{if(token.value)verify()})
+</script>
+<style scoped>
+.verify-page{min-height:100vh;display:grid;place-items:center;background:#f4f1e8;color:#173f34;padding:1.25rem}.verify-page section{width:min(100%,28rem);border-radius:2rem;background:#fffdf7;padding:2rem;text-align:center;box-shadow:0 18px 50px rgba(23,63,52,.09)}.brand{display:grid;width:3.4rem;height:3.4rem;place-items:center;margin:0 auto 1.2rem;border-radius:1rem;background:#dff263;font:700 2.1rem Georgia,serif}.eyebrow{font-size:.65rem;font-weight:900;letter-spacing:.18em;color:#6e7b76}.verify-page h1{margin:.45rem 0;font:700 2rem Georgia,serif}.verify-page p{color:#64716c;line-height:1.55}.verify-page p.error{color:#9d3434}.verify-page button,.verify-page a{display:block;width:100%;margin-top:.7rem;border:1px solid #173f34;border-radius:999px;padding:.82rem;background:#173f34;color:#e1f56c;font-weight:900}.verify-page a{background:transparent;color:#173f34}
+</style>

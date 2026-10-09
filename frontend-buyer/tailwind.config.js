@@ -4,12 +4,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#FF4400',
-        'primary-light': '#FF6B35',
-        'orange-bg': '#FFF5F0',
-        'orange-light': '#FFE8DD',
-        'orange-glow': '#FFD5C8',
-        'footer-dark': '#1B1B1B',
+        primary: '#17483B',
+        'primary-light': '#2B6253',
+        'orange-bg': '#F0F3E8',
+        'orange-light': '#DFF263',
+        'orange-glow': '#E8F49D',
+        'footer-dark': '#123B31',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

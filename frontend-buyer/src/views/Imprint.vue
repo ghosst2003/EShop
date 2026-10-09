@@ -7,26 +7,15 @@
       <div class="bg-white rounded-xl p-8 space-y-6 text-gray-600">
         <div>
           <h2 class="font-bold text-gray-900 mb-2">Business Information</h2>
-          <p>BeCool Market GmbH (registered)</p>
-          <p>Berlin, Germany</p>
+          <p>BeCool Market</p>
+          <p>Online second-hand marketplace serving customers in the European Union.</p>
         </div>
 
         <div>
           <h2 class="font-bold text-gray-900 mb-2">Contact</h2>
           <p>Email: <a href="mailto:hello@eshshop.eu" class="text-primary">hello@eshshop.eu</a></p>
-          <p>Phone: +49 30 12345678</p>
-          <p>Hours: Mon–Fri, 9:00–18:00 CET</p>
-        </div>
-
-        <div>
-          <h2 class="font-bold text-gray-900 mb-2">Responsible for Content</h2>
-          <p>Managing Director: [Name]</p>
-          <p>Berlin, Germany</p>
-        </div>
-
-        <div>
-          <h2 class="font-bold text-gray-900 mb-2">VAT Number</h2>
-          <p>DE123456789</p>
+          <p>Support hours: Mon–Fri, 9:00–18:00 CET</p>
+          <p class="mt-2 text-sm">The operator's registered legal name, address, registration number and VAT number must be added here before public commercial launch.</p>
         </div>
 
         <div>

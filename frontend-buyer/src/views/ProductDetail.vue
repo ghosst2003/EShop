@@ -34,6 +34,12 @@
             :condition-grade="product.condition_grade"
           />
 
+          <div class="product-tools">
+            <button type="button" @click="toggleSaved">{{ isSaved ? '♥ Saved' : '♡ Save' }}</button>
+            <button type="button" :disabled="sharePending" @click="shareProduct">{{ sharePending ? 'Preparing…' : 'Share product' }}</button>
+          </div>
+          <p v-if="announcement" class="announcement" role="status">{{ announcement }}</p>
+
           <!-- Condition Note -->
           <div v-if="product.condition_note" class="mb-3 bg-orange-bg rounded-xl p-3">
             <div class="text-sm font-medium text-gray-900 mb-1">Condition Details</div>
@@ -84,7 +90,7 @@
             <DescriptionPanel :html="product.description_en || product.description" />
           </template>
           <template #reviews>
-            <ReviewsPanel />
+            <ReviewsPanel :product-id="product.id" />
           </template>
           <template #specs>
             <SpecsPanel :product="product" />
@@ -132,8 +138,9 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
-import { getProduct } from '../api'
+import { createProductShareLink, getProduct, getSavedProducts, getSharedProduct, saveProduct, unsaveProduct } from '../api'
 import { useCart } from '../composables/useCart'
+import { useAuth } from '../composables/useAuth'
 import { useCountries } from '../composables/useCountries'
 import { useLocation } from '@/composables/useLocation'
 
@@ -154,12 +161,17 @@ import RelatedProducts from '../components/pdp/RelatedProducts.vue'
 const route = useRoute()
 const router = useRouter()
 const { addToCart } = useCart()
+const { isAuthenticated } = useAuth()
 const { loadCountries, getFlagEmoji, getCountryName, isPickupEnabled } = useCountries()
 const { countryCode } = useLocation()
 
 const product = ref(null)
 const loading = ref(true)
 const quantity = ref(1)
+const savedIds = ref(new Set())
+const sharePending = ref(false)
+const announcement = ref('')
+const isSaved = computed(() => Boolean(product.value && savedIds.value.has(product.value.id)))
 
 const originFlag = computed(() => product.value?.origin_country_code ? getFlagEmoji(product.value.origin_country_code) : '')
 const originCountryName = computed(() => product.value?.origin_country_code ? getCountryName(product.value.origin_country_code) : '')
@@ -179,8 +191,29 @@ function handleAddToCart() {
 }
 
 function handleBuyNow() {
-  addToCart(product.value, quantity.value)
-  router.push('/cart')
+  addToCart(product.value, quantity.value).then(() => router.push('/cart')).catch((error) => { announcement.value = error.message })
+}
+
+async function toggleSaved() {
+  if (!isAuthenticated.value) { router.push({ path: '/login', query: { redirect: route.fullPath } }); return }
+  const next = new Set(savedIds.value)
+  try {
+    if (next.has(product.value.id)) { await unsaveProduct(product.value.id); next.delete(product.value.id); announcement.value = 'Removed from saved products.' }
+    else { await saveProduct(product.value.id); next.add(product.value.id); announcement.value = 'Saved for later.' }
+    savedIds.value = next
+  } catch (error) { announcement.value = error.response?.data?.detail || 'Could not update saved products.' }
+}
+
+async function shareProduct() {
+  sharePending.value = true
+  try {
+    const { data } = await createProductShareLink(product.value.slug)
+    const sharePath = new URL(data.share_url, window.location.origin).pathname
+    const url = new URL(sharePath, window.location.origin).toString()
+    if (navigator.share) await navigator.share({ title: product.value.title_en || product.value.title, url })
+    else { await navigator.clipboard.writeText(url); announcement.value = 'Safe public link copied.' }
+  } catch (error) { if (error.name !== 'AbortError') announcement.value = 'Could not prepare the share link.' }
+  finally { sharePending.value = false }
 }
 
 onMounted(async () => {
@@ -189,8 +222,11 @@ onMounted(async () => {
   const { initLocation } = useLocation()
   initLocation()
   try {
-    const { data } = await getProduct(route.params.slug)
-    product.value = data
+    const response = route.name === 'shared-product' ? await getSharedProduct(route.params.token) : await getProduct(route.params.slug)
+    product.value = route.name === 'shared-product' ? response.data.product : response.data
+    if (isAuthenticated.value) {
+      try { savedIds.value = new Set(((await getSavedProducts()).data || []).map(item => item.product_id || item.product?.id)) } catch {}
+    }
   } catch (e) {
     console.error(e)
   } finally {
@@ -208,4 +244,5 @@ onMounted(async () => {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+.product-tools{display:flex;gap:.65rem;margin:0 0 1rem}.product-tools button{min-height:42px;padding:0 1rem;border:1px solid #cdd6cf;border-radius:999px;background:#fffdf8;color:#173f34;font-size:.75rem;font-weight:850}.announcement{margin:-.35rem 0 1rem;padding:.65rem .8rem;border-radius:.75rem;background:#eef3cb;color:#173f34;font-size:.72rem}
 </style>

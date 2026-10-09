@@ -37,11 +37,11 @@ const safeHtml = computed(() => props.html || '<p>No description available.</p>'
   margin-bottom: 12px;
 }
 .product-description :deep(a) {
-  color: #FF4400;
+  color: #17483b;
   text-decoration: underline;
 }
 .product-description :deep(blockquote) {
-  border-left: 3px solid #FF4400;
+  border-left: 3px solid #17483b;
   padding-left: 16px;
   color: #666;
   margin: 12px 0;
