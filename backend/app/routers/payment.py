@@ -37,6 +37,8 @@ def create_checkout_session(
     ).filter(Order.id == data.order_id, Order.buyer_id == user.id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    if order.transaction_mode != "online" or order.payment_method != "stripe":
+        raise HTTPException(status_code=400, detail="Face-to-face orders do not use Stripe checkout")
     if order.status != "pending":
         raise HTTPException(status_code=400, detail="Order cannot be paid")
     if not order.reservation or order.reservation.status != "reserved":

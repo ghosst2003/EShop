@@ -33,6 +33,12 @@ class Order(Base):
         default="pending",
         nullable=False,
     )
+    transaction_mode = Column(String(20), default="online", nullable=False)
+    pickup_location = Column(String(300))
+    pickup_schedule = Column(String(300))
+    pickup_contact = Column(String(200))
+    pickup_payment = Column(Text)
+    pickup_instructions = Column(Text)
     shipping_method = Column(String(100))  # 物流方式
     shipping_price = Column(DECIMAL(10, 2))  # 运费价格
     shipping_country = Column(String(10))  # 派送国家

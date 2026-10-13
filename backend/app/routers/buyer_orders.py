@@ -84,9 +84,45 @@ def create_order(
             if submitted_quantities[cart_item.product_id] != cart_item.quantity:
                 raise HTTPException(status_code=409, detail="Cart changed. Review quantities before paying.")
 
+    selected_products = [item.product for item in order_cart_items if item.product]
+    if not selected_products or len(selected_products) != len(order_cart_items):
+        raise HTTPException(status_code=409, detail="One or more cart items are no longer available")
+    transaction_modes = {product.transaction_mode for product in selected_products}
+    if len(transaction_modes) != 1:
+        raise HTTPException(status_code=400, detail="Online delivery and face-to-face products must be checked out separately")
+    transaction_mode = next(iter(transaction_modes))
+    expected_payment_method = "in_person" if transaction_mode == "in_person" else "stripe"
+    if data.payment_method != expected_payment_method:
+        raise HTTPException(status_code=400, detail=f"This order must use {expected_payment_method} payment")
+
+    pickup_product = None
+    if transaction_mode == "in_person":
+        pickup_signatures = {
+            (
+                (product.pickup_location or "").strip(),
+                (product.pickup_contact or "").strip(),
+                (product.pickup_payment or "").strip(),
+                (product.pickup_schedule or "").strip(),
+            )
+            for product in selected_products
+        }
+        if len(pickup_signatures) != 1:
+            raise HTTPException(status_code=400, detail="Meetup products with different locations or arrangements must be reserved separately")
+        pickup_product = selected_products[0]
+        if not pickup_product.pickup_location or not pickup_product.pickup_contact:
+            raise HTTPException(status_code=409, detail="Meetup information is incomplete. Please contact support.")
+
     # 确定收货地址
     shipping_country = None
-    if data.address_id:
+    if transaction_mode == "in_person":
+        buyer_name = (data.buyer_name or user.display_name or user.username).strip()
+        buyer_email = data.buyer_email or user.email
+        buyer_phone = (data.buyer_phone or user.phone or "").strip()
+        if not buyer_phone:
+            raise HTTPException(status_code=400, detail="Add a phone number so the meetup can be arranged")
+        buyer_address = pickup_product.pickup_location.strip()
+        shipping_country = (pickup_product.origin_country_code or "").strip().upper() or None
+    elif data.address_id:
         address = db.query(Address).filter(
             Address.id == data.address_id, Address.buyer_id == user.id
         ).first()
@@ -155,10 +191,15 @@ def create_order(
     discounted_subtotal = money(subtotal_amount - discount_amount)
 
     # Price, shipping, promotions, and tax are all authoritative on the server.
-    shipping_quote = quote_cart_shipping(db, order_cart_items, shipping_country)
-    if not shipping_quote.configured:
-        raise HTTPException(status_code=400, detail="Delivery is not configured for one or more items at this address")
-    shipping_price = shipping_quote.total
+    if transaction_mode == "online":
+        shipping_quote = quote_cart_shipping(db, order_cart_items, shipping_country)
+        if not shipping_quote.configured:
+            raise HTTPException(status_code=400, detail="Delivery is not configured for one or more items at this address")
+        shipping_price = shipping_quote.total
+        shipping_method = shipping_quote.method
+    else:
+        shipping_price = Decimal("0.00")
+        shipping_method = "Face-to-face meetup"
     tax_rate = tax_rate_for(shipping_country)
     tax_amount, total_amount = calculate_tax(discounted_subtotal + shipping_price, tax_rate)
 
@@ -175,12 +216,18 @@ def create_order(
         currency="EUR",
         status="pending",
         payment_method=data.payment_method,
-        shipping_method=shipping_quote.method,
+        transaction_mode=transaction_mode,
+        shipping_method=shipping_method,
         shipping_price=shipping_price,
         shipping_country=shipping_country,
         notes=(f"Promotion {coupon_code} applied. " if coupon_code else "") + (data.notes or ""),
         created_by=user.id,
         payment_status="pending",
+        pickup_location=pickup_product.pickup_location if pickup_product else None,
+        pickup_schedule=pickup_product.pickup_schedule if pickup_product else None,
+        pickup_contact=pickup_product.pickup_contact if pickup_product else None,
+        pickup_payment=pickup_product.pickup_payment if pickup_product else None,
+        pickup_instructions=pickup_product.pickup_instructions if pickup_product else None,
     )
     db.add(order)
     db.flush()
@@ -192,7 +239,11 @@ def create_order(
     db.add(OrderReservation(
         order_id=order.id,
         status="reserved",
-        expires_at=datetime.utcnow() + timedelta(minutes=settings.stock_reservation_minutes),
+        expires_at=(
+            datetime.utcnow() + timedelta(hours=settings.pickup_reservation_hours)
+            if transaction_mode == "in_person"
+            else datetime.utcnow() + timedelta(minutes=settings.stock_reservation_minutes)
+        ),
     ))
     db.add(OrderFinancialSnapshot(
         order_id=order.id,
@@ -238,7 +289,7 @@ def create_order(
         order_id=order.id,
         from_status=None,
         to_status="pending",
-        note="买家下单",
+        note="买家预约当面交易" if transaction_mode == "in_person" else "买家下单",
         operator_id=user.id,
     )
     db.add(log)
@@ -263,7 +314,7 @@ def create_order(
             return OrderOut.model_validate(db.query(Order).filter(Order.id == existing_key.order_id).first())
         raise
     db.refresh(order)
-    send_order_notification(db, order, "order_created")
+    send_order_notification(db, order, "meetup_reserved" if transaction_mode == "in_person" else "order_created")
 
     return OrderOut.model_validate(order)
 

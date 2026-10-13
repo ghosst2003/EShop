@@ -258,11 +258,18 @@ def update_order_status(
     if not order:
         raise HTTPException(status_code=404, detail="订单不存在")
 
-    valid_transitions = {
-        "pending": ["paid", "cancelled"],
-        "paid": ["shipped"],
-        "shipped": ["completed"],
-    }
+    valid_transitions = (
+        {
+            "pending": ["paid", "cancelled"],
+            "paid": ["completed"],
+        }
+        if order.transaction_mode == "in_person"
+        else {
+            "pending": ["paid", "cancelled"],
+            "paid": ["shipped"],
+            "shipped": ["completed"],
+        }
+    )
 
     if order.status not in valid_transitions:
         raise HTTPException(status_code=400, detail=f"订单状态 '{order.status}' 不可变更")
@@ -274,6 +281,8 @@ def update_order_status(
         )
 
     old_status = order.status
+    if data.status == "paid" and order.payment_method == "stripe":
+        raise HTTPException(status_code=400, detail="Stripe orders can only be marked paid by a verified Stripe webhook")
     if data.status == "cancelled" and order.status == "pending":
         if not release_reservation(db, order, data.note or "Cancelled by administrator", admin.id):
             order.status = "cancelled"
@@ -314,6 +323,11 @@ def update_order_status(
         "completed": "order_completed",
         "cancelled": "order_cancelled",
     }
+    if order.transaction_mode == "in_person":
+        notification_events.update({
+            "paid": "meetup_payment_recorded",
+            "completed": "meetup_completed",
+        })
     if data.status in notification_events:
         send_order_notification(db, order, notification_events[data.status])
     return OrderOut.model_validate(order)

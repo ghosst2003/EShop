@@ -77,6 +77,21 @@ export function useCart() {
   const fetchServer = async ({ silent = false } = {}) => {
     if (!isAuthenticated.value) {
       serverCart.value = null
+      if (!guestCart.value.length) return
+      if (!silent) loading.value = true
+      try {
+        const refreshed = await Promise.allSettled(
+          guestCart.value.map(item => api.get(`/products/id/${item.product_id}`)),
+        )
+        guestCart.value = guestCart.value.map((item, index) => (
+          refreshed[index].status === 'fulfilled'
+            ? { ...item, product: refreshed[index].value.data }
+            : item
+        ))
+        saveGuest()
+      } finally {
+        if (!silent) loading.value = false
+      }
       return
     }
     if (!silent) loading.value = true
@@ -153,6 +168,7 @@ export function useCart() {
         await fetchServer({ silent: true })
       } else if (existing) {
         existing.quantity = nextQuantity
+        existing.product = product
         guestCart.value = [...guestCart.value]
         saveGuest()
       } else {

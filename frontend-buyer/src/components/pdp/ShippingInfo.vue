@@ -7,7 +7,7 @@
 
     <div class="divide-y divide-gray-200">
       <!-- Shipping -->
-      <div class="pr-4 py-2.5 lg:pr-0">
+      <div v-if="transactionMode === 'online'" class="pr-4 py-2.5 lg:pr-0">
         <div class="flex items-start gap-3">
           <span class="min-w-[80px] md:min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Shipping:</span>
           <div class="flex-1 min-w-0">
@@ -47,25 +47,24 @@
       </div>
 
       <!-- Local Deal -->
-      <div v-if="showPickup" class="pr-4 py-2.5 lg:pr-0">
+      <div v-else class="pr-4 py-3 lg:pr-0 meetup-panel">
         <div class="flex items-start gap-3">
-          <span class="min-w-[80px] md:min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Local Deal:</span>
+          <span class="min-w-[80px] md:min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Meetup:</span>
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 text-sm">
-              <span class="text-green-600 font-semibold"> Face-to-face available</span>
-            </div>
-            <div v-if="pickupContact" class="text-sm text-gray-700 mt-1">
-              <span class="text-gray-500">Contact:</span> {{ pickupContact }}
-            </div>
+            <strong class="text-sm text-green-700">Face-to-face only</strong>
+            <div v-if="pickupLocation" class="text-sm text-gray-700 mt-1"><span class="text-gray-500">Location:</span> {{ pickupLocation }}</div>
+            <div v-if="pickupSchedule" class="text-sm text-gray-700 mt-0.5"><span class="text-gray-500">Times:</span> {{ pickupSchedule }}</div>
             <div v-if="pickupPayment" class="text-sm text-gray-700 mt-0.5">
               <span class="text-gray-500">Payment:</span> {{ pickupPayment }}
             </div>
+            <div v-if="pickupInstructions" class="text-xs text-gray-500 mt-1.5">{{ pickupInstructions }}</div>
+            <div class="mt-2 rounded-lg bg-[#eef3cb] px-2.5 py-2 text-xs font-semibold text-[#173f34]">Contact details are shared after you reserve the item.</div>
           </div>
         </div>
       </div>
 
       <!-- Delivery -->
-      <div class="pr-4 py-2.5 lg:pr-0">
+      <div v-if="transactionMode === 'online'" class="pr-4 py-2.5 lg:pr-0">
         <div class="flex items-center gap-3">
           <span class="min-w-[80px] md:min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Delivery:</span>
           <div class="flex-1 min-w-0 flex items-center gap-2">
@@ -81,7 +80,7 @@
       </div>
 
       <!-- Import fees -->
-      <div v-if="settings.show_import_fees" class="pr-4 py-2.5 lg:pr-0">
+      <div v-if="transactionMode === 'online' && settings.show_import_fees" class="pr-4 py-2.5 lg:pr-0">
         <div class="flex items-center gap-3">
           <span class="min-w-[80px] md:min-w-[110px] flex-shrink-0 text-sm font-medium text-gray-500 text-left">Import fees:</span>
           <div class="flex-1 min-w-0 flex items-center gap-2">
@@ -113,13 +112,14 @@
           <div class="flex-1 min-w-0 flex items-center gap-2">
             <div class="flex flex-wrap items-center gap-1.5">
               <!-- Payment icons from backend -->
-              <span v-for="pay in paymentMethods" :key="pay.code"
+              <span v-if="transactionMode === 'in_person'" class="inline-flex items-center justify-center min-h-7 px-2 border border-green-200 rounded text-[11px] font-semibold text-green-800 bg-green-50">Pay at meetup</span>
+              <span v-for="pay in transactionMode === 'online' ? paymentMethods : []" :key="pay.code"
                     class="inline-flex items-center justify-center h-7 px-2 border border-gray-200 rounded text-[11px] font-semibold"
                     :style="pay.color ? { color: pay.text_color || '#374151', backgroundColor: pay.color } : {}">
                 {{ pay.name_en || pay.name }}
               </span>
               <!-- Fallback if no payment methods configured -->
-              <span v-if="!paymentMethods.length" class="text-sm text-gray-400">Payment methods will be shown at checkout</span>
+              <span v-if="transactionMode === 'online' && !paymentMethods.length" class="text-sm text-gray-400">Payment methods will be shown at checkout</span>
             </div>
             <button class="text-blue-600 hover:underline text-sm">See details</button>
           </div>
@@ -139,6 +139,7 @@ import { useLocation } from '@/composables/useLocation'
 const { setLocation } = useLocation()
 
 const props = defineProps({
+  transactionMode: { type: String, default: 'online' },
   productSlug: String,
   productId: Number,
   countryCode: String,
@@ -147,6 +148,9 @@ const props = defineProps({
   pickupEnabled: Boolean,
   pickupContact: String,
   pickupPayment: String,
+  pickupLocation: String,
+  pickupSchedule: String,
+  pickupInstructions: String,
   countryPickupEnabled: Boolean, // 买家所在国家是否允许面对面交易
 })
 
@@ -175,9 +179,6 @@ const selectedCountryName = computed(() => {
   return getCountryName(code) || code || ''
 })
 
-const showPickup = computed(() => {
-  return props.pickupEnabled && props.countryPickupEnabled
-})
 
 const shippingPrice = computed(() => {
   if (!shippingOptions.value.length) return '0.00'

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -65,9 +65,13 @@ class ProductCreate(BaseModel):
     height_cm: Optional[float] = None
     shipping_category: str = "standard"
     origin_country_code: Optional[str] = None
+    transaction_mode: Literal["online", "in_person"] = "online"
     pickup_enabled: bool = False
     pickup_contact: Optional[str] = None
     pickup_payment: Optional[str] = None
+    pickup_location: Optional[str] = None
+    pickup_schedule: Optional[str] = None
+    pickup_instructions: Optional[str] = None
     shipping_rules: Optional[list["ShippingRuleCreate"]] = None
 
 
@@ -93,9 +97,13 @@ class ProductUpdate(BaseModel):
     height_cm: Optional[float] = None
     shipping_category: Optional[str] = None
     origin_country_code: Optional[str] = None
+    transaction_mode: Optional[Literal["online", "in_person"]] = None
     pickup_enabled: Optional[bool] = None
     pickup_contact: Optional[str] = None
     pickup_payment: Optional[str] = None
+    pickup_location: Optional[str] = None
+    pickup_schedule: Optional[str] = None
+    pickup_instructions: Optional[str] = None
     shipping_rules: Optional[list["ShippingRuleCreate"]] = None
 
 
@@ -124,9 +132,13 @@ class ProductOut(BaseModel):
     height_cm: Optional[Decimal] = None
     shipping_category: Optional[str] = None
     origin_country_code: Optional[str] = None
+    transaction_mode: Literal["online", "in_person"] = "online"
     pickup_enabled: bool = False
     pickup_contact: Optional[str] = None
     pickup_payment: Optional[str] = None
+    pickup_location: Optional[str] = None
+    pickup_schedule: Optional[str] = None
+    pickup_instructions: Optional[str] = None
     created_by: int
     published_at: Optional[datetime] = None
     created_at: datetime
@@ -158,7 +170,12 @@ class PublicProductOut(BaseModel):
     weight_kg: Optional[Decimal] = None
     shipping_category: Optional[str] = None
     origin_country_code: Optional[str] = None
+    transaction_mode: Literal["online", "in_person"] = "online"
     pickup_enabled: bool = False
+    pickup_location: Optional[str] = None
+    pickup_schedule: Optional[str] = None
+    pickup_payment: Optional[str] = None
+    pickup_instructions: Optional[str] = None
     images: list["PublicProductImageOut"] = []
 
     model_config = {"from_attributes": True}

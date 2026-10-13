@@ -97,5 +97,5 @@ def release_expired_reservations(db: Session) -> int:
         db.commit()
         from app.services.email import send_order_notification
         for order in released_orders:
-            send_order_notification(db, order, "payment_failed")
+            send_order_notification(db, order, "meetup_expired" if order.transaction_mode == "in_person" else "payment_failed")
     return released

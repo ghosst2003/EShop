@@ -56,6 +56,13 @@
           </el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="交易方式" width="110">
+        <template #default="{ row }">
+          <el-tag :type="row.transaction_mode === 'in_person' ? 'warning' : 'success'" size="small">
+            {{ row.transaction_mode === 'in_person' ? '当面交易' : '在线支付' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="发货地" width="100">
         <template #default="{ row }">
           <span v-if="row.origin_country_code" class="flex items-center gap-1">

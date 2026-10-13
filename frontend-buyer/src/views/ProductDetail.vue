@@ -66,6 +66,7 @@
           <!-- Shipping Info -->
           <div class="lg:-ml-4">
             <ShippingInfo
+              :transaction-mode="product.transaction_mode"
               :product-id="product.id"
               :product-slug="product.slug"
               :country-code="countryCode || 'DE'"
@@ -73,6 +74,9 @@
               :pickup-enabled="product.pickup_enabled"
               :pickup-contact="product.pickup_contact"
               :pickup-payment="product.pickup_payment"
+              :pickup-location="product.pickup_location"
+              :pickup-schedule="product.pickup_schedule"
+              :pickup-instructions="product.pickup_instructions"
               :country-pickup-enabled="countryPickupEnabled"
             />
           </div>
@@ -112,6 +116,7 @@
           <div class="col-start-2">
             <CtaButtons
               :disabled="product.stock_quantity === 0"
+              :transaction-mode="product.transaction_mode"
               @add-to-cart="handleAddToCart"
               @buy-now="handleBuyNow"
             />

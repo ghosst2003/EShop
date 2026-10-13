@@ -74,6 +74,9 @@ pip install -r requirements.txt
 
 # 初始化数据库（首次部署）
 python init_db.py
+
+# 已有数据库升级：增加在线支付/当面交易商品配置
+python migrate_transaction_modes.py
 ```
 
 ## 6. 用 systemd 部署后端服务

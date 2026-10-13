@@ -99,6 +99,12 @@ class OrderOut(BaseModel):
     payment_reference: Optional[str]
     payment_intent_id: Optional[str] = None
     payment_status: str = "pending"
+    transaction_mode: str = "online"
+    pickup_location: Optional[str] = None
+    pickup_schedule: Optional[str] = None
+    pickup_contact: Optional[str] = None
+    pickup_payment: Optional[str] = None
+    pickup_instructions: Optional[str] = None
     shipping_method: Optional[str]
     shipping_price: Optional[Decimal] = None
     shipping_country: Optional[str] = None

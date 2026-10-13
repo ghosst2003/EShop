@@ -46,6 +46,9 @@ class Product(Base):
     pickup_enabled = Column(Integer, default=0, nullable=False)
     pickup_contact = Column(String(200))
     pickup_payment = Column(Text)
+    pickup_location = Column(String(300))
+    pickup_schedule = Column(String(300))
+    pickup_instructions = Column(Text)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     published_at = Column(DateTime)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
@@ -56,6 +59,11 @@ class Product(Base):
     images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan", order_by="ProductImage.sort_order")
     shipping_rules = relationship("ProductShippingRule", back_populates="product", cascade="all, delete-orphan")
     flash_deals = relationship("FlashDeal", back_populates="product", cascade="all, delete-orphan")
+
+    @property
+    def transaction_mode(self) -> str:
+        """Keep the public API explicit while remaining compatible with pickup_enabled."""
+        return "in_person" if self.pickup_enabled else "online"
 
 
 class ProductImage(Base):

@@ -32,6 +32,55 @@ UPLOAD_DIR = Path(__file__).parent.parent.parent / "uploads" / "products"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _transaction_values(data, current: Product | None = None) -> dict:
+    """Validate and normalise the mutually exclusive product transaction mode."""
+    requested_mode = getattr(data, "transaction_mode", None)
+    if requested_mode is None:
+        pickup_flag = getattr(data, "pickup_enabled", None)
+        if pickup_flag is None and current is not None:
+            pickup_flag = bool(current.pickup_enabled)
+        requested_mode = "in_person" if pickup_flag else "online"
+    if requested_mode == "in_person":
+        def value_for(field: str):
+            value = getattr(data, field, None)
+            if value is None and current is not None:
+                value = getattr(current, field, None)
+            return value
+
+        origin_country_code = value_for("origin_country_code")
+        pickup_location = value_for("pickup_location")
+        pickup_schedule = value_for("pickup_schedule")
+        pickup_contact = value_for("pickup_contact")
+        pickup_payment = value_for("pickup_payment")
+        pickup_instructions = value_for("pickup_instructions")
+        missing = [
+            label for label, value in (
+                ("country", origin_country_code),
+                ("meetup location", pickup_location),
+                ("contact method", pickup_contact),
+                ("payment instructions", pickup_payment),
+            ) if not (value or "").strip()
+        ]
+        if missing:
+            raise HTTPException(status_code=422, detail=f"Face-to-face products require: {', '.join(missing)}")
+        return {
+            "pickup_enabled": 1,
+            "pickup_location": pickup_location.strip(),
+            "pickup_schedule": (pickup_schedule or "").strip() or None,
+            "pickup_contact": pickup_contact.strip(),
+            "pickup_payment": pickup_payment.strip(),
+            "pickup_instructions": (pickup_instructions or "").strip() or None,
+        }
+    return {
+        "pickup_enabled": 0,
+        "pickup_location": None,
+        "pickup_schedule": None,
+        "pickup_contact": None,
+        "pickup_payment": None,
+        "pickup_instructions": None,
+    }
+
+
 def _log_action(db: Session, user: User, action: str, entity_type: str, entity_id: int | None, details: dict | None):
     log = OperationLog(
         user_id=user.id,
@@ -73,6 +122,7 @@ def create_product(
     user: User = Depends(get_current_user),
 ):
     try:
+        transaction_values = _transaction_values(data)
         # 生成唯一 slug
         if data.slug:
             base = data.slug
@@ -104,7 +154,13 @@ def create_product(
             status=data.status,
             stock_quantity=data.stock_quantity,
             auto_manage_stock=1 if data.auto_manage_stock else 0,
+            weight_kg=data.weight_kg,
+            length_cm=data.length_cm,
+            width_cm=data.width_cm,
+            height_cm=data.height_cm,
+            shipping_category=data.shipping_category,
             origin_country_code=data.origin_country_code.upper() if data.origin_country_code else None,
+            **transaction_values,
             created_by=user.id,
         )
         if data.status == "active":
@@ -135,6 +191,9 @@ def create_product(
 
         _log_action(db, user, "create", "product", product.id, {"title": data.title})
         return product
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         logger.error("create_product error: %s", e, exc_info=True)
         db.rollback()
@@ -167,14 +226,27 @@ def update_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    for field, value in data.model_dump(exclude_unset=True, exclude={"shipping_rules"}).items():
+    update_fields = data.model_dump(
+        exclude_unset=True,
+        exclude={"shipping_rules", "transaction_mode", "pickup_enabled", "pickup_location", "pickup_schedule", "pickup_contact", "pickup_payment", "pickup_instructions"},
+    )
+    for field, value in update_fields.items():
         setattr(product, field, value)
+
+    transaction_fields = (
+        "transaction_mode", "pickup_enabled", "pickup_location", "pickup_schedule",
+        "pickup_contact", "pickup_payment", "pickup_instructions",
+    )
+    if any(getattr(data, field) is not None for field in transaction_fields):
+        for field, value in _transaction_values(data, product).items():
+            setattr(product, field, value)
 
     # 验证发货地国家是否存在
     if data.origin_country_code is not None:
         country = db.query(Country).filter(Country.code == data.origin_country_code.upper()).first()
         if not country:
             raise HTTPException(status_code=400, detail=f"Country '{data.origin_country_code}' not found")
+        product.origin_country_code = data.origin_country_code.upper()
 
     # 处理运费规则：全量替换
     if data.shipping_rules is not None:

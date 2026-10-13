@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Literal, Optional, List
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
@@ -24,7 +24,7 @@ class BuyerOrderCreate(BaseModel):
     buyer_email: Optional[str] = None
     buyer_phone: Optional[str] = None
     buyer_address: Optional[str] = None
-    payment_method: str = "stripe"
+    payment_method: Literal["stripe", "in_person"] = "stripe"
     shipping_method: Optional[str] = None
     coupon_code: Optional[str] = None
     notes: Optional[str] = None

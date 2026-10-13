@@ -14,8 +14,12 @@ logger = logging.getLogger(__name__)
 
 EVENT_COPY = {
     "order_created": ("We received your order", "Your items are reserved while you complete payment."),
+    "meetup_reserved": ("Meetup reserved", "Your item is reserved. Use the order page to review the meetup details and contact information."),
+    "meetup_payment_recorded": ("Meetup confirmed", "Payment has been recorded for your face-to-face order."),
+    "meetup_completed": ("Meetup complete", "The item has been handed over and this order is complete."),
     "payment_received": ("Payment received", "Your payment is confirmed and we are preparing your order."),
     "payment_failed": ("Payment window ended", "Payment was not completed and the reserved stock has been released."),
+    "meetup_expired": ("Meetup reservation ended", "The meetup reservation expired and the item is available again."),
     "order_shipped": ("Your order is on its way", "Your order has shipped."),
     "order_completed": ("Order delivered", "Your order is complete. Thank you for shopping with BeCool."),
     "order_cancelled": ("Order cancelled", "Your order has been cancelled."),

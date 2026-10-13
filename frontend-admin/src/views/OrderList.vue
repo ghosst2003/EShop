@@ -70,7 +70,7 @@
         </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="statusType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
+            <el-tag :type="statusType(row.status)" size="small">{{ statusLabel(row.status, row) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180">
@@ -85,8 +85,9 @@
                 <el-dropdown-menu>
                   <el-dropdown-item v-if="row.status === 'pending'" command="paid">标记已付款</el-dropdown-item>
                   <el-dropdown-item v-if="row.status === 'pending'" command="cancelled">取消订单</el-dropdown-item>
-                  <el-dropdown-item v-if="row.status === 'paid'" command="shipped">标记已发货</el-dropdown-item>
-                  <el-dropdown-item v-if="row.status === 'paid' && row.payment_status === 'paid'" command="refund">退款并取消</el-dropdown-item>
+                  <el-dropdown-item v-if="row.status === 'paid' && row.transaction_mode !== 'in_person'" command="shipped">标记已发货</el-dropdown-item>
+                  <el-dropdown-item v-if="row.status === 'paid' && row.transaction_mode === 'in_person'" command="completed">标记已交接</el-dropdown-item>
+                  <el-dropdown-item v-if="row.status === 'paid' && row.payment_status === 'paid' && row.transaction_mode !== 'in_person'" command="refund">退款并取消</el-dropdown-item>
                   <el-dropdown-item v-if="row.status === 'shipped'" command="completed">标记已完成</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -168,7 +169,7 @@
       <div v-if="currentOrder" class="detail-content">
         <div class="detail-header">
           <h3 class="detail-title">{{ currentOrder.order_number }}</h3>
-          <el-tag :type="statusType(currentOrder.status)">{{ statusLabel(currentOrder.status) }}</el-tag>
+          <el-tag :type="statusType(currentOrder.status)">{{ statusLabel(currentOrder.status, currentOrder) }}</el-tag>
         </div>
 
         <el-descriptions :column="1" border>
@@ -176,6 +177,7 @@
           <el-descriptions-item label="邮箱">{{ currentOrder.buyer_email || '-' }}</el-descriptions-item>
           <el-descriptions-item label="电话">{{ currentOrder.buyer_phone || '-' }}</el-descriptions-item>
           <el-descriptions-item label="地址">{{ currentOrder.buyer_address }}</el-descriptions-item>
+          <el-descriptions-item label="交易方式">{{ currentOrder.transaction_mode === 'in_person' ? '当面交易' : '在线支付' }}</el-descriptions-item>
           <el-descriptions-item label="支付方式">{{ currentOrder.payment_method || '-' }}</el-descriptions-item>
           <el-descriptions-item label="物流方式">{{ currentOrder.shipping_method || '-' }}</el-descriptions-item>
           <el-descriptions-item label="物流单号">{{ currentOrder.tracking_number || '-' }}</el-descriptions-item>
@@ -183,7 +185,15 @@
           <el-descriptions-item label="创建时间">{{ formatDate(currentOrder.created_at) }}</el-descriptions-item>
         </el-descriptions>
 
-        <div class="shipment-box">
+        <el-alert v-if="currentOrder.transaction_mode === 'in_person'" title="当面交易安排" type="warning" :closable="false" show-icon style="margin-top:16px">
+          <p><strong>地点：</strong>{{ currentOrder.pickup_location || '-' }}</p>
+          <p><strong>时间：</strong>{{ currentOrder.pickup_schedule || '买卖双方协商' }}</p>
+          <p><strong>联系：</strong>{{ currentOrder.pickup_contact || '-' }}</p>
+          <p><strong>付款：</strong>{{ currentOrder.pickup_payment || '-' }}</p>
+          <p v-if="currentOrder.pickup_instructions"><strong>须知：</strong>{{ currentOrder.pickup_instructions }}</p>
+        </el-alert>
+
+        <div v-if="currentOrder.transaction_mode !== 'in_person'" class="shipment-box">
           <div class="shipment-title"><h4>物流追踪</h4><el-button size="small" type="primary" :loading="savingShipment" @click="saveShipment">保存物流</el-button></div>
           <el-form label-position="top" :model="shipmentForm">
             <div class="shipment-grid"><el-form-item label="承运商"><el-input v-model="shipmentForm.carrier" placeholder="DHL / DPD / UPS" /></el-form-item><el-form-item label="物流单号"><el-input v-model="shipmentForm.tracking_number" /></el-form-item></div>
@@ -251,10 +261,12 @@ const newOrder = ref({
   items: [{ product_title: '', quantity: 1, unit_price: 0 }],
 })
 
-const statusLabel = (s) => ({
-  pending: '待处理', paid: '已付款', shipped: '已发货',
-  completed: '已完成', cancelled: '已取消',
-}[s] || s)
+const statusLabel = (s, order = null) => {
+  if (order?.transaction_mode === 'in_person') {
+    return ({ pending: '待约见', paid: '已确认付款', completed: '已交接', cancelled: '已取消' }[s] || s)
+  }
+  return ({ pending: '待处理', paid: '已付款', shipped: '已发货', completed: '已完成', cancelled: '已取消' }[s] || s)
+}
 
 const statusType = (s) => ({
   pending: 'warning', paid: 'success', shipped: 'info',

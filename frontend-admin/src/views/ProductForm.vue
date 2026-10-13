@@ -96,31 +96,63 @@
         </div>
       </el-card>
 
-      <!-- 面对面交易 -->
+      <!-- 交易方式 -->
       <el-card class="form-card">
         <template #header>
-          <span>面对面交易</span>
-          <el-tooltip content="开启后，买家可在商品页面查看联系方式并线下完成交易" placement="top">
+          <span>交易方式</span>
+          <el-tooltip content="每件商品只能选择一种交易方式，避免买家重复付款或误选配送" placement="top">
             <el-icon style="margin-left: 6px; cursor: help"><QuestionFilled /></el-icon>
           </el-tooltip>
         </template>
-        <el-form-item label="允许面对面交易">
-          <el-switch v-model="form.pickup_enabled" active-text="开启" inactive-text="关闭" />
-        </el-form-item>
-        <template v-if="form.pickup_enabled">
-          <el-form-item label="联系方式">
-            <el-input v-model="form.pickup_contact" placeholder="如 WhatsApp: +49 123 456 789 / 电话 / 微信" maxlength="200" />
-            <span class="field-hint">买家将通过此联系方式与您取得联系</span>
+        <el-radio-group v-model="form.transaction_mode" class="transaction-options">
+          <el-radio value="online" border>
+            <strong>在线支付</strong><small>配送商品，买家通过 Stripe 安全付款</small>
+          </el-radio>
+          <el-radio value="in_person" border>
+            <strong>当面交易</strong><small>买家先预约，到指定地点见面付款</small>
+          </el-radio>
+        </el-radio-group>
+        <el-alert
+          v-if="form.transaction_mode === 'online'"
+          title="商品会进入购物车和配送流程，付款由 Stripe 完成。"
+          type="success"
+          :closable="false"
+          show-icon
+        />
+        <template v-else>
+          <el-form-item label="所在国家" required>
+            <el-select v-model="form.origin_country_code" placeholder="选择见面交易所在国家" filterable style="width: 100%">
+              <el-option
+                v-for="c in countries"
+                :key="c.code"
+                :label="`${c.flag_emoji || ''} ${c.name_en || c.name} (${c.code})`"
+                :value="c.code"
+              />
+            </el-select>
           </el-form-item>
-          <el-form-item label="支付方式说明">
-            <el-input v-model="form.pickup_payment" type="textarea" :rows="2" placeholder="如：接受现金、银行转账、PayPal 等" maxlength="500" />
-            <span class="field-hint">说明您接受的线下支付方式</span>
+          <el-form-item label="见面地点" required>
+            <el-input v-model="form.pickup_location" placeholder="如：Nicosia Mall 主入口服务台" maxlength="300" />
+            <span class="field-hint">公开展示大致地点，请不要填写私人住宅的精确门牌。</span>
+          </el-form-item>
+          <el-form-item label="可约时间">
+            <el-input v-model="form.pickup_schedule" placeholder="如：周一至周五 18:00–20:00，需提前预约" maxlength="300" />
+          </el-form-item>
+          <el-form-item label="联系信息" required>
+            <el-input v-model="form.pickup_contact" placeholder="如 WhatsApp: +357… / 电话 / 店内联系人" maxlength="200" />
+            <span class="field-hint">只在买家完成预约后的订单详情中显示。</span>
+          </el-form-item>
+          <el-form-item label="付款说明" required>
+            <el-input v-model="form.pickup_payment" type="textarea" :rows="2" placeholder="如：见面验货后现金付款，或现场银行转账" maxlength="500" />
+            <span class="field-hint">此内容会公开展示，请只写付款方式，不要填写银行卡号或账户信息。</span>
+          </el-form-item>
+          <el-form-item label="交接须知">
+            <el-input v-model="form.pickup_instructions" type="textarea" :rows="3" placeholder="如：请携带预约订单号；可现场检查商品；预约保留 48 小时" maxlength="1000" />
           </el-form-item>
         </template>
       </el-card>
 
       <!-- 重量与尺寸 -->
-      <el-card class="form-card">
+      <el-card v-if="form.transaction_mode === 'online'" class="form-card">
         <template #header>
           <span>重量与尺寸</span>
           <el-tooltip content="用于计算运费，按实际重量或体积重量（长×宽×高÷5000）取较大值" placement="top">
@@ -186,7 +218,7 @@
       </el-card>
 
       <!-- 配送设置（发货地 + 目的地 + 运费） -->
-      <el-card class="form-card">
+      <el-card v-if="form.transaction_mode === 'online'" class="form-card">
         <template #header>
           <span>配送设置</span>
           <el-tooltip content="配置从此商品发货地到各个目的地的运费" placement="top">
@@ -344,7 +376,7 @@
       </el-card>
 
       <!-- 配送说明 -->
-      <el-card class="form-card">
+      <el-card v-if="form.transaction_mode === 'online'" class="form-card">
         <template #header>
           <span>配送说明</span>
           <el-tooltip content="为买家展示关于此商品配送的说明条目（如包装方式、预计发货时间等）" placement="top">
@@ -449,9 +481,13 @@ const form = reactive({
   height_cm: null,
   shipping_category: 'standard',
   origin_country_code: null,
+  transaction_mode: 'online',
   pickup_enabled: false,
+  pickup_location: '',
+  pickup_schedule: '',
   pickup_contact: '',
   pickup_payment: '',
+  pickup_instructions: '',
 })
 
 const categories = ref([])
@@ -563,9 +599,13 @@ onMounted(async () => {
         height_cm: data.height_cm ? Number(data.height_cm) : null,
         shipping_category: data.shipping_category || 'standard',
         origin_country_code: data.origin_country_code || null,
+        transaction_mode: data.transaction_mode || (data.pickup_enabled ? 'in_person' : 'online'),
         pickup_enabled: data.pickup_enabled ?? false,
+        pickup_location: data.pickup_location || '',
+        pickup_schedule: data.pickup_schedule || '',
         pickup_contact: data.pickup_contact || '',
         pickup_payment: data.pickup_payment || '',
+        pickup_instructions: data.pickup_instructions || '',
       })
       existingImages.value = data.images || []
       if (data.tags?.length) tagsInput.value = data.tags.join(', ')
@@ -641,6 +681,10 @@ const handleSave = async () => {
     ElMessage.warning('请填写必填字段')
     return
   }
+  if (form.transaction_mode === 'in_person' && (!form.origin_country_code || !form.pickup_location.trim() || !form.pickup_contact.trim() || !form.pickup_payment.trim())) {
+    ElMessage.warning('当面交易请填写所在国家、见面地点、联系信息和付款说明')
+    return
+  }
 
   form.tags = tagsInput.value.split(',').map((t) => t.trim()).filter(Boolean)
 
@@ -704,9 +748,13 @@ const handleSave = async () => {
       height_cm: form.height_cm,
       shipping_category: form.shipping_category,
       origin_country_code: form.origin_country_code,
-      pickup_enabled: form.pickup_enabled,
+      transaction_mode: form.transaction_mode,
+      pickup_enabled: form.transaction_mode === 'in_person',
+      pickup_location: form.pickup_location,
+      pickup_schedule: form.pickup_schedule,
       pickup_contact: form.pickup_contact,
       pickup_payment: form.pickup_payment,
+      pickup_instructions: form.pickup_instructions,
       tags: form.tags,
     }
 
@@ -755,6 +803,36 @@ const handleSave = async () => {
 }
 .form-card {
   margin-bottom: 16px;
+}
+.transaction-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.transaction-options .el-radio {
+  width: 100%;
+  height: auto;
+  min-height: 82px;
+  margin: 0;
+  padding: 16px;
+}
+.transaction-options strong,
+.transaction-options small {
+  display: block;
+}
+.transaction-options small {
+  max-width: 280px;
+  margin-top: 6px;
+  color: #7a8490;
+  line-height: 1.45;
+  white-space: normal;
+}
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  color: #909399;
+  font-size: 12px;
 }
 .existing-images {
   margin-top: 12px;
