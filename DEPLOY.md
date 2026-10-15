@@ -2,6 +2,59 @@
 
 本文以一台 Ubuntu 22.04/24.04 服务器为例，将 ESHShop 部署到 `https://shop.example.com`。请把文中的域名、邮箱和密码替换成自己的值。
 
+## 0. 推荐：使用自动部署脚本
+
+仓库提供了 [`deploy/deploy.sh`](deploy/deploy.sh)，支持首次安装、更新、备份和状态检查。脚本会安装系统依赖、创建应用用户、拉取 `main`、配置本机 MySQL、运行迁移、构建三个前端、配置 systemd/Nginx、申请 HTTPS 证书并执行健康检查。
+
+先在服务器获取仓库并运行首次安装：
+
+```bash
+git clone https://github.com/ghosst2003/EShop.git ~/ESHShop-deploy
+cd ~/ESHShop-deploy
+
+sudo bash deploy/deploy.sh install \
+  --domain shop.example.com \
+  --www-domain www.shop.example.com \
+  --tls-email admin@example.com
+```
+
+首次未提供 `--env-file` 时，脚本会生成 `/opt/eshshop/app/backend/.env` 并安全退出。编辑其中的数据库密码、SMTP 和 Stripe 配置：
+
+```bash
+sudo nano /opt/eshshop/app/backend/.env
+```
+
+然后用已经安装到目标目录的脚本再次执行同一条安装命令：
+
+```bash
+sudo bash /opt/eshshop/app/deploy/deploy.sh install \
+  --domain shop.example.com \
+  --www-domain www.shop.example.com \
+  --tls-email admin@example.com
+```
+
+如果已经准备好完整的生产配置，可以一次完成：
+
+```bash
+sudo bash deploy/deploy.sh install \
+  --domain shop.example.com \
+  --www-domain www.shop.example.com \
+  --env-file /root/eshshop.production.env \
+  --tls-email admin@example.com
+```
+
+数据库在云服务或另一台服务器时增加 `--external-db`。只有确认服务器使用标准 OpenSSH 防火墙配置时，才增加 `--enable-firewall`。
+
+后续发布、备份和检查：
+
+```bash
+sudo bash /opt/eshshop/app/deploy/deploy.sh update
+sudo bash /opt/eshshop/app/deploy/deploy.sh backup
+sudo bash /opt/eshshop/app/deploy/deploy.sh status
+```
+
+`update` 会先备份数据库和上传文件，再快进拉取 `origin/main`、安装依赖、构建、迁移、重启并检查 `/api/health`。下面各节保留了脚本所执行的完整手动步骤，便于排错和定制。
+
 ## 1. 部署结构
 
 - Nginx 对外监听 80/443，并把请求转发到 FastAPI。
