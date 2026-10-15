@@ -17,6 +17,8 @@ WWW_DOMAIN=""
 ENV_SOURCE=""
 TLS_EMAIL=""
 INSTALL_MYSQL_SERVER=1
+MANAGE_LOCAL_DATABASE=1
+BACKUP_EXISTING_DATABASE=0
 ENABLE_FIREWALL=0
 SKIP_PACKAGES=0
 
@@ -50,6 +52,7 @@ Install options:
   --tls-email EMAIL        Obtain and configure a Let's Encrypt certificate.
   --repo-url URL           Git repository URL.
   --branch NAME            Deployment branch (default: main).
+  --existing-db            Keep an existing database/server/account and back it up before migrations.
   --external-db            Install MySQL client only; do not install local MySQL server.
   --enable-firewall        Enable UFW after allowing OpenSSH and Nginx Full.
   --skip-packages          Skip apt and Node.js installation.
@@ -103,6 +106,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --external-db)
       INSTALL_MYSQL_SERVER=0
+      MANAGE_LOCAL_DATABASE=0
+      BACKUP_EXISTING_DATABASE=1
+      shift
+      ;;
+    --existing-db)
+      INSTALL_MYSQL_SERVER=0
+      MANAGE_LOCAL_DATABASE=0
+      BACKUP_EXISTING_DATABASE=1
       shift
       ;;
     --enable-firewall)
@@ -279,8 +290,8 @@ prepare_environment() {
 
 Created: ${env_file}
 
-Fill in DATABASE_URL, SMTP settings and Stripe keys, then rerun the same
-install command. The generated SECRET_KEY is already safe to use.
+Fill in DATABASE_URL, then rerun the same install command. SMTP and Stripe
+may remain empty temporarily. The generated SECRET_KEY is already safe to use.
 EOF
     exit 2
   fi
@@ -337,7 +348,10 @@ install_backend_dependencies() {
 }
 
 ensure_local_mysql_database() {
-  [[ "$INSTALL_MYSQL_SERVER" -eq 1 ]] || return
+  [[ "$MANAGE_LOCAL_DATABASE" -eq 1 ]] || {
+    log "Keeping the existing database server and account unchanged."
+    return
+  }
   local backend="$APP_DIR/backend"
   local python="$backend/venv/bin/python"
   log "Ensuring the local MySQL database and application user exist..."
@@ -457,8 +471,9 @@ target = backup_dir / f"database-{stamp}.sql.gz"
 command = [
     "mysqldump",
     "--single-transaction",
-    "--routines",
+    "--quick",
     "--triggers",
+    "--no-tablespaces",
     "--host", url.host or "127.0.0.1",
     "--port", str(url.port or 3306),
     "--user", url.username or "root",
@@ -601,6 +616,9 @@ install_application() {
   prepare_environment
   install_backend_dependencies
   ensure_local_mysql_database
+  if [[ "$BACKUP_EXISTING_DATABASE" -eq 1 ]]; then
+    backup_database
+  fi
   install -d -o "$APP_USER" -g "$APP_USER" -m 750 "$APP_DIR/backend/uploads"
   build_frontends
   initialize_and_migrate_database

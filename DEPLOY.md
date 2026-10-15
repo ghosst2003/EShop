@@ -4,7 +4,7 @@
 
 ## 0. 推荐：使用自动部署脚本
 
-仓库提供了 [`deploy/deploy.sh`](deploy/deploy.sh)，支持首次安装、更新、备份和状态检查。脚本会安装系统依赖、创建应用用户、拉取 `main`、配置本机 MySQL、运行迁移、构建三个前端、配置 systemd/Nginx、申请 HTTPS 证书并执行健康检查。
+仓库提供了 [`deploy/deploy.sh`](deploy/deploy.sh)，支持首次安装、更新、备份和状态检查。脚本会安装系统依赖、创建应用用户、拉取 `main`、连接数据库、运行迁移、构建三个前端、配置 systemd/Nginx、申请 HTTPS 证书并执行健康检查。
 
 先在服务器获取仓库并运行首次安装：
 
@@ -18,7 +18,7 @@ sudo bash deploy/deploy.sh install \
   --tls-email admin@example.com
 ```
 
-首次未提供 `--env-file` 时，脚本会生成 `/opt/eshshop/app/backend/.env` 并安全退出。编辑其中的数据库密码、SMTP 和 Stripe 配置：
+首次未提供 `--env-file` 时，脚本会生成 `/opt/eshshop/app/backend/.env` 并安全退出。`DATABASE_URL` 必须填写；SMTP 和 Stripe 可以暂时留空：
 
 ```bash
 sudo nano /opt/eshshop/app/backend/.env
@@ -43,7 +43,40 @@ sudo bash deploy/deploy.sh install \
   --tls-email admin@example.com
 ```
 
-数据库在云服务或另一台服务器时增加 `--external-db`。只有确认服务器使用标准 OpenSSH 防火墙配置时，才增加 `--enable-firewall`。
+### 使用已经存在且有数据的数据库
+
+增加 `--existing-db` 后，脚本不会安装 MySQL Server，不会创建或删除数据库，也不会创建或修改数据库账号。它会使用 `.env` 中的 `DATABASE_URL` 先完整备份现有数据，然后才执行兼容迁移：
+
+```bash
+sudo bash /opt/eshshop/app/deploy/deploy.sh install \
+  --domain shop.example.com \
+  --existing-db \
+  --tls-email admin@example.com
+```
+
+迁移会保留订单、商品、用户和配置数据，但可能为新功能增加字段或表。备份默认保存在 `/var/backups/eshshop`。数据库在云服务或另一台服务器时也可以使用 `--external-db`；它同样会在迁移前备份。
+
+`--existing-db` 仍会安装应用需要的系统软件和 MySQL 客户端，但不会安装 MySQL Server。如果服务器上的 Python、Node.js、Nginx 和 MySQL 客户端也都已经准备好，可以同时增加 `--skip-packages`，完全跳过 `apt` 和 Node.js 安装步骤。
+
+### 暂时不配置 Stripe 或 SMTP
+
+两个服务都不会阻止脚本完成部署，可以在 `.env` 中暂时留空：
+
+```env
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+
+SMTP_HOST=
+SMTP_USERNAME=
+SMTP_PASSWORD=
+SMTP_FROM_EMAIL=
+```
+
+- 未配置 Stripe 时，只使用当面交易商品。在线支付、Stripe 退款和 Stripe Webhook 暂不可用。
+- SMTP 缺失或连接配置错误时，生产环境的新用户注册、邮箱验证和找回密码不可用。已有已验证用户和管理员仍可登录；订单邮件发送失败不会中断订单流程。
+- SMTP 或 Stripe 配置完成后，编辑 `/opt/eshshop/app/backend/.env` 并执行 `sudo systemctl restart eshshop` 即可，不必重新部署。
+
+只有确认服务器使用标准 OpenSSH 防火墙配置时，才增加 `--enable-firewall`。
 
 后续发布、备份和检查：
 
@@ -75,8 +108,8 @@ sudo bash /opt/eshshop/app/deploy/deploy.sh status
 - 一个域名，并把 `shop.example.com` 和 `www.shop.example.com` 的 A 记录指向服务器公网 IPv4；如果不使用 `www`，删除后续配置中的 `www` 域名；
 - GitHub 仓库读取权限；
 - MySQL；
-- 用于注册、找回密码和订单邮件的 SMTP 账号；
-- Stripe 账号。首次上线先使用测试密钥，完整测试后再切换正式密钥。
+- 用于注册、找回密码和订单邮件的 SMTP 账号（暂时不开放注册时可后配）；
+- Stripe 账号（只做当面交易时可后配；接入时先使用测试密钥）。
 
 生产环境注册流程依赖 SMTP。`ENVIRONMENT=production` 时未配置 SMTP，注册和密码邮件接口会返回 503。
 
