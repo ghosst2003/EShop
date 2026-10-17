@@ -2,6 +2,43 @@
 
 适用于 Ubuntu 22.04/24.04。默认部署目录为 `/opt/eshshop/app`，Nginx 对外提供网站，FastAPI 只监听 `127.0.0.1:8000`。
 
+## 目录结构
+
+部署和构建完成后，服务器上的主要目录如下：
+
+```text
+/opt/eshshop/app/
+├── backend/
+│   ├── app/                    # Python/FastAPI 后端源码
+│   ├── static/
+│   │   ├── buyer/              # 电脑端构建产物：index.html + assets/
+│   │   ├── mobile/             # 手机端构建产物：index.html + assets/
+│   │   └── admin/              # 管理后台构建产物：index.html + assets/
+│   ├── uploads/                # 商品上传图片，需要单独备份
+│   ├── venv/                   # Python 虚拟环境和依赖
+│   ├── .env                    # 数据库、SMTP、Stripe 等生产配置
+│   └── requirements.txt
+├── frontend-buyer/             # 电脑端 Vue 源码
+├── frontend-mobile/            # 手机端 Vue 源码
+├── frontend-admin/             # 管理后台 Vue 源码
+├── packages/eshop-shared/      # 买家端和手机端共享代码
+└── deploy/deploy.sh            # 自动部署脚本
+```
+
+三个前端执行 `npm run build` 后，会分别写入 `backend/static/buyer`、`backend/static/mobile` 和 `backend/static/admin`。生产环境只运行一个 FastAPI 进程，由它同时提供 API 和这些静态文件：
+
+Python 后端没有单独的 `dist` 构建目录；uvicorn 直接从 `backend/app` 加载代码，依赖安装在 `backend/venv`。
+
+| 访问地址 | 实际内容 |
+| --- | --- |
+| `/`、`/browse`、`/products/...` | `backend/static/buyer` |
+| `/mobile/` | `backend/static/mobile` |
+| `/admin/` | `backend/static/admin` |
+| `/api/...` | `backend/app` 中的 FastAPI 接口 |
+| `/uploads/...` | `backend/uploads` |
+
+Nginx 不直接读取三个前端目录，而是把所有请求代理到 `127.0.0.1:8000`，再由 FastAPI 分发。
+
 ## 1. 自动部署
 
 先解析域名到服务器公网 IP，然后获取代码：
