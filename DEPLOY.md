@@ -210,7 +210,58 @@ tmux attach -t eshshop
 
 保持 `--workers 1`，否则库存预约清理任务会重复运行。
 
-## 5. Stripe 后续接入
+## 5. Nginx 配置
+
+创建站点配置：
+
+```bash
+sudo nano /etc/nginx/sites-available/eshshop
+```
+
+写入以下内容，并把域名换成自己的域名：
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name shop.example.com www.shop.example.com;
+
+    client_max_body_size 12m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+}
+```
+
+暂时没有域名时，把 `server_name` 改成 `server_name _;`，先用服务器 IP 通过 HTTP 访问。启用配置：
+
+```bash
+sudo ln -sfn /etc/nginx/sites-available/eshshop /etc/nginx/sites-enabled/eshshop
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl enable --now nginx
+sudo systemctl reload nginx
+```
+
+域名 DNS 已经指向服务器后，配置 HTTPS：
+
+```bash
+sudo apt update
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d shop.example.com -d www.shop.example.com
+sudo certbot renew --dry-run
+```
+
+如果没有配置 `www` 域名，配置文件和 `certbot` 命令都删除 `www.shop.example.com`。
+
+## 6. Stripe 后续接入
 
 Webhook 地址：
 
@@ -227,7 +278,7 @@ https://shop.example.com/api/payments/webhook
 
 先使用 `sk_test_...` 测试，完成支付和库存回滚验证后再换成正式密钥。测试与正式环境的 `whsec_...` 不能混用。
 
-## 6. 更新、备份和状态
+## 7. 更新、备份和状态
 
 ```bash
 # 自动备份、拉取 main、构建、迁移、重启和健康检查
@@ -248,7 +299,7 @@ sudo systemctl disable --now eshshop 2>/dev/null || true
 
 然后重新执行第 4 节的启动命令。
 
-## 7. 验收
+## 8. 验收
 
 ```bash
 curl -fsS https://shop.example.com/api/health
@@ -259,7 +310,7 @@ curl -I https://shop.example.com/admin/
 
 再检查登录、商品浏览、购物车、当面交易下单、后台商品管理、订单管理和图片上传。配置 Stripe/SMTP 后，再测试在线支付、注册和找回密码。
 
-## 8. 常用排错
+## 9. 常用排错
 
 ```bash
 sudo journalctl -u eshshop -f
@@ -273,7 +324,7 @@ sudo ss -lntp
 - **注册返回 503**：检查 SMTP；未配置 SMTP 时属于预期行为。
 - **Stripe 不可用**：检查两个 Stripe 环境变量和 Webhook 投递记录。
 
-## 9. 重要路径
+## 10. 重要路径
 
 | 内容 | 路径 |
 | --- | --- |
