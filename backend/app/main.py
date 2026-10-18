@@ -135,6 +135,13 @@ def health_check():
     return {"status": "ok"}
 
 
+@app.get("/buyer", include_in_schema=False)
+@app.get("/buyer/", include_in_schema=False)
+def redirect_buyer_home():
+    """Keep the old buyer entry point from rendering an empty SPA shell."""
+    return RedirectResponse(url="/", status_code=308)
+
+
 async def _reservation_reaper():
     while True:
         await asyncio.sleep(60)
