@@ -12,7 +12,7 @@ class LoginRequest(BaseModel):
 
 
 class UserRegister(BaseModel):
-    username: str
+    username: Optional[str] = None
     password: str
     display_name: str = ""
     email: Optional[str] = None

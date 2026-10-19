@@ -23,6 +23,14 @@ from app.schemas import UserRegister, UserProfileUpdate, UserOut, TokenResponse
 router = APIRouter()
 
 
+def _generate_buyer_username(db: Session) -> str:
+    """Create an internal username for email-first buyer accounts."""
+    while True:
+        username = f"buyer_{secrets.token_hex(6)}"
+        if not db.query(User.id).filter(User.username == username).first():
+            return username
+
+
 def _send_password_reset_email(recipient: str, raw_token: str):
     if not settings.smtp_host or not settings.smtp_from_email:
         return False
@@ -64,23 +72,30 @@ def register(req: UserRegister, db: Session = Depends(get_db)):
     """买家注册 — 注册成功自动登录"""
     if len(req.password) < 8 or not any(char.isalpha() for char in req.password) or not any(char.isdigit() for char in req.password):
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters and include a letter and a number")
-    if not req.email:
+    email = (req.email or "").strip().lower()
+    display_name = (req.display_name or "").strip()
+    requested_username = (req.username or "").strip()
+    if not email:
         raise HTTPException(status_code=400, detail="Email is required")
+    if not display_name:
+        raise HTTPException(status_code=400, detail="Name is required")
     if settings.environment.lower() == "production" and (not settings.smtp_host or not settings.smtp_from_email):
         raise HTTPException(status_code=503, detail="Email verification is temporarily unavailable")
-    # 检查用户名是否已存在
-    if db.query(User).filter(User.username == req.username).first():
+    # Usernames remain available for existing clients, while the storefront now
+    # creates an opaque internal username and asks buyers for only one name.
+    if requested_username and db.query(User).filter(User.username == requested_username).first():
         raise HTTPException(status_code=400, detail="Username already exists")
 
-    if req.email and db.query(User).filter(User.email == req.email).first():
+    if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    username = requested_username or _generate_buyer_username(db)
     user = User(
-        username=req.username,
+        username=username,
         password_hash=hash_password(req.password),
         role="buyer",
-        display_name=req.display_name or req.username,
-        email=req.email,
+        display_name=display_name,
+        email=email,
         phone=req.phone,
     )
     db.add(user)

@@ -7,10 +7,8 @@
     </header>
     <section class="register-card">
       <form @submit.prevent="handleRegister">
-        <label for="register-username">Username</label>
-        <input id="register-username" v-model.trim="form.username" autocomplete="username" minlength="3" required placeholder="Choose a username" />
-        <label for="register-name">Display name</label>
-        <input id="register-name" v-model.trim="form.display_name" autocomplete="name" required placeholder="How should we address you?" />
+        <label for="register-name">Name</label>
+        <input id="register-name" v-model.trim="form.display_name" autocomplete="name" maxlength="100" required placeholder="How should we address you?" />
         <label for="register-email">Email</label>
         <input id="register-email" v-model.trim="form.email" type="email" autocomplete="email" required placeholder="you@example.com" />
         <label for="register-phone">Phone <small>optional</small></label>
@@ -39,7 +37,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useAuth } from '../composables/useAuth'
 const { register } = useAuth()
-const form = reactive({ username:'', display_name:'', email:'', phone:'', password:'', confirm:'' })
+const form = reactive({ display_name:'', email:'', phone:'', password:'', confirm:'' })
 const accepted = ref(false)
 const showPassword = ref(false)
 const loading = ref(false)
@@ -53,7 +51,6 @@ const handleRegister = async () => {
   loading.value = true
   try {
     await register({
-      username: form.username,
       display_name: form.display_name,
       email: form.email,
       phone: form.phone || undefined,
