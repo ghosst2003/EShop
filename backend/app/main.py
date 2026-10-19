@@ -213,6 +213,28 @@ if admin_dir.exists():
             return FileResponse(index_file)
         raise HTTPException(status_code=404, detail="Not Found")
 
+# Register the mobile SPA before the buyer catch-all. FastAPI resolves matching
+# routes in registration order, so putting this below /{full_path:path} makes
+# every /mobile/... request hit the buyer handler and return a 404.
+if mobile_dir.exists():
+    @app.get("/mobile", include_in_schema=False)
+    async def redirect_mobile_home():
+        return RedirectResponse(url="/mobile/", status_code=308)
+
+    @app.get("/mobile/favicon.svg", include_in_schema=False)
+    async def serve_mobile_favicon():
+        favicon_file = mobile_dir / "favicon.svg"
+        if favicon_file.exists():
+            return FileResponse(favicon_file, media_type="image/svg+xml")
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    @app.get("/mobile/{full_path:path}")
+    async def serve_mobile_spa(full_path: str):
+        index_file = mobile_dir / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+        raise HTTPException(status_code=404, detail="Not Found")
+
 if buyer_dir.exists():
     # 挂载静态资源目录
     assets_dir = buyer_dir / "assets"
@@ -230,15 +252,3 @@ if buyer_dir.exists():
         if index_file.exists():
             return FileResponse(index_file)
         raise HTTPException(status_code=404, detail="Not Found")
-
-# 手机端前端静态文件
-if mobile_dir.exists():
-    @app.get("/mobile/{full_path:path}")
-    async def serve_mobile_spa(full_path: str):
-        index_file = mobile_dir / "index.html"
-        if index_file.exists():
-            return FileResponse(index_file)
-        raise HTTPException(status_code=404, detail="Not Found")
-elif not buyer_dir.exists():
-    # 如果两个前端都没构建，只返回 API 健康状态
-    pass

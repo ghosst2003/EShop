@@ -93,8 +93,7 @@ def _product_html(product: Product, canonical_url: str) -> HTMLResponse:
     """
     index = _mobile_index()
     if index:
-        # The mobile build is served by FastAPI under /mobile/assets even though
-        # Vite emits root-relative asset URLs for its standalone dev server.
+        # Keep compatibility with older builds that emitted root-relative assets.
         index = index.replace('src="/assets/', 'src="/mobile/assets/').replace('href="/assets/', 'href="/mobile/assets/')
         return HTMLResponse(index.replace("<head>", f"<head>{metadata}", 1))
     return HTMLResponse(f"""<!doctype html><html lang="en"><head><meta charset="utf-8">{metadata}</head>

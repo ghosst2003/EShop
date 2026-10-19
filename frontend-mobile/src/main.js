@@ -19,8 +19,12 @@ import Legal from './views/Legal.vue'
 import ForgotPassword from './views/ForgotPassword.vue'
 import VerifyEmail from './views/VerifyEmail.vue'
 
+const isMobileMount = window.location.pathname === '/mobile' || window.location.pathname.startsWith('/mobile/')
+
 const router = createRouter({
-  history: createWebHistory(),
+  // Product/share SEO pages also hydrate this bundle at root-level URLs.
+  // Use /mobile/ only when the dedicated mobile storefront is opened.
+  history: createWebHistory(isMobileMount ? '/mobile/' : '/'),
   routes: [
     { path: '/', component: Home },
     { path: '/browse', component: Browse },
