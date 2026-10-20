@@ -92,6 +92,7 @@
 
               <div class="item-meta">
                 <span v-if="item.product?.condition_grade">{{ formatCondition(item.product.condition_grade) }}</span>
+                <span class="transaction-tag">{{ itemMode(item) === 'in_person' ? 'Face-to-face meetup' : 'Online delivery' }}</span>
                 <span v-if="Number(item.product?.stock_quantity) <= 3" class="low-stock">
                   Only {{ item.product?.stock_quantity }} left
                 </span>
@@ -125,7 +126,7 @@
           </article>
         </div>
 
-        <section class="delivery-note">
+        <section v-if="!mixedCartModes && singleCartMode === 'online'" class="delivery-note">
           <span class="note-icon" aria-hidden="true">↗</span>
           <div>
             <strong v-if="shippingLoading">Checking delivery to {{ countryCode }}…</strong>
@@ -140,12 +141,22 @@
     </main>
 
     <aside v-if="items.length" class="checkout-bar safe-bottom">
-      <div class="checkout-inner">
+      <div v-if="mixedCartModes" class="checkout-inner split-checkout">
+        <button type="button" class="group-checkout" @click="checkoutGroup('online')">
+          <span>Online delivery · {{ groupUnits('online') }} {{ groupUnits('online') === 1 ? 'item' : 'items' }}</span>
+          <strong>€{{ money(groupTotal('online')) }} · Checkout <b>→</b></strong>
+        </button>
+        <button type="button" class="group-checkout meetup" @click="checkoutGroup('in_person')">
+          <span>Face-to-face · {{ groupUnits('in_person') }} {{ groupUnits('in_person') === 1 ? 'item' : 'items' }}</span>
+          <strong>€{{ money(groupTotal('in_person')) }} · Reserve <b>→</b></strong>
+        </button>
+      </div>
+      <div v-else class="checkout-inner">
         <div class="total-copy">
           <span>Estimated total · {{ selectedUnits }} {{ selectedUnits === 1 ? 'item' : 'items' }}</span>
           <span v-if="promoDiscount">Promotion −€{{ money(promoDiscount) }}</span>
           <strong>€{{ money(estimatedGrandTotal) }}</strong>
-          <small>{{ estimatedShipping===null?'Shipping confirmed at checkout':'Includes estimated delivery' }}</small>
+          <small>{{ singleCartMode === 'in_person' ? 'Pay only when you meet' : estimatedShipping===null?'Shipping confirmed at checkout':'Includes estimated delivery' }}</small>
         </div>
         <button
           type="button"
@@ -205,6 +216,13 @@ const allSelected = computed(() => (
 const someSelected = computed(() => (
   selectedCount.value > 0 && selectedCount.value < items.value.length
 ))
+const itemMode = item => item.product?.transaction_mode || 'online'
+const cartModes = computed(() => [...new Set(items.value.map(itemMode))])
+const mixedCartModes = computed(() => cartModes.value.length > 1)
+const singleCartMode = computed(() => cartModes.value[0] || 'online')
+const groupItems = mode => items.value.filter(item => itemMode(item) === mode)
+const groupUnits = mode => groupItems(mode).reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+const groupTotal = mode => groupItems(mode).reduce((sum, item) => sum + Number(item.product?.sale_price || 0) * Number(item.quantity || 0), 0)
 
 const productTitle = item => item.product?.title_en || item.product?.title || 'Product'
 const productImage = item => {
@@ -241,11 +259,19 @@ const removeItem = async (item) => {
 
 const undoRemove = async () => { if(!removedItem.value)return;try{await addToCart(removedItem.value.product,removedItem.value.quantity);removedItem.value=null}catch{} }
 const moveToSaved = async item => { if(!isAuthenticated.value){router.push({path:'/login',query:{redirect:'/cart'}});return}try{await saveProduct(item.product_id);await removeFromCart(itemKey(item))}catch{} }
-const loadShipping = async () => { if(!countryCode.value||!selectedItems.value.length){estimatedShipping.value=null;return}shippingLoading.value=true;shippingError.value='';try{const results=await Promise.all(selectedItems.value.map(async item=>{const {data}=await getShippingOptions(item.product.slug,countryCode.value);const prices=(data||[]).map(option=>Number(option.price ?? option.total_fee)).filter(Number.isFinite);return (prices.length?Math.min(...prices):0)*item.quantity}));estimatedShipping.value=results.reduce((sum,v)=>sum+v,0)}catch(e){estimatedShipping.value=null;shippingError.value='Delivery will be confirmed at checkout.'}finally{shippingLoading.value=false} }
+const loadShipping = async () => { const deliveryItems=selectedItems.value.filter(item=>itemMode(item)==='online');if(!countryCode.value||!deliveryItems.length){estimatedShipping.value=null;shippingError.value='';return}shippingLoading.value=true;shippingError.value='';try{const results=await Promise.all(deliveryItems.map(async item=>{const {data}=await getShippingOptions(item.product.slug,countryCode.value);const prices=(data||[]).map(option=>Number(option.price ?? option.total_fee)).filter(Number.isFinite);return (prices.length?Math.min(...prices):0)*item.quantity}));estimatedShipping.value=results.reduce((sum,v)=>sum+v,0)}catch(e){estimatedShipping.value=null;shippingError.value='Delivery will be confirmed at checkout.'}finally{shippingLoading.value=false} }
 const applyPromo = async () => {promoLoading.value=true;promoMessage.value='';promoError.value=false;try{promo.value=(await validatePromotion(promoInput.value,selectedTotal.value)).data;promoInput.value=promo.value.code;sessionStorage.setItem('esh_promo_code',promo.value.code);const benefit=promo.value.discount_type==='percent'?`${promo.value.discount_value}% off`:`€${money(promo.value.discount_value)} off`;promoMessage.value=`${promo.value.label}: ${benefit} applied.`}catch(e){promo.value=null;sessionStorage.removeItem('esh_promo_code');promoMessage.value=e.response?.data?.detail||'This promotion code is not valid.';promoError.value=true}finally{promoLoading.value=false}}
 
+const checkoutGroup = mode => {
+  const group = groupItems(mode)
+  if (!group.length) return
+  selectedIds.value = group.map(item => item.product_id)
+  trackCommerceEvent('begin_checkout', { properties: { items: groupUnits(mode), subtotal: groupTotal(mode), transaction_mode: mode } })
+  router.push({ path: '/checkout', query: { mode } })
+}
 const checkout = () => {
-  if (selectedCount.value) { trackCommerceEvent('begin_checkout', { properties: { items: selectedUnits.value, subtotal: selectedTotal.value } }); router.push('/checkout') }
+  const modes = [...new Set(selectedItems.value.map(itemMode))]
+  if (modes.length === 1) checkoutGroup(modes[0])
 }
 watch([selectedIds,countryCode],loadShipping,{deep:true})
 onMounted(async()=>{await initLocation();if(promoInput.value)await applyPromo();await loadShipping()})
@@ -291,6 +317,7 @@ input[type='checkbox'] { width:20px; height:20px; border-radius:6px; accent-colo
 .item-meta { display:flex; flex-wrap:wrap; gap:7px; margin-top:8px; color:#68776e; font-size:11px; }
 .item-meta span { padding:4px 7px; border-radius:999px; background:#f0f2e9; }
 .item-meta .low-stock { background:#fff0df; color:#8a4a20; }
+.item-meta .transaction-tag { background:#e8efdf; color:#315d4e; font-weight:750; }
 .save-button { align-self:flex-start; min-height:34px; margin-top:5px; color:#17483b; font-size:10px; font-weight:800; text-decoration:underline; text-underline-offset:3px; }
 .item-bottom { display:flex; align-items:end; justify-content:space-between; gap:10px; margin-top:auto; padding-top:12px; }
 .quantity-control { display:grid; grid-template-columns:38px 32px 38px; align-items:center; min-height:40px; overflow:hidden; border:1px solid #d7ddd4; border-radius:999px; background:#f7f6ef; text-align:center; }
@@ -318,6 +345,12 @@ input[type='checkbox'] { width:20px; height:20px; border-radius:6px; accent-colo
 .total-copy small { margin-top:4px; color:#89938d; font-size:9px; }
 .checkout-button { display:flex; min-height:52px; flex:0 0 auto; align-items:center; justify-content:center; gap:18px; padding:0 21px; border-radius:999px; background:#17483b; color:#fffdf8; font-size:12px; font-weight:850; box-shadow:0 8px 20px rgba(23,72,59,.2); }
 .checkout-button:disabled { background:#9da8a2; box-shadow:none; }
+.split-checkout { display:grid; grid-template-columns:1fr 1fr; gap:10px; min-height:112px; }
+.group-checkout { display:flex; min-width:0; min-height:72px; flex-direction:column; align-items:flex-start; justify-content:center; gap:5px; padding:11px 15px; border-radius:18px; background:#17483b; color:#fffdf8; text-align:left; box-shadow:0 8px 20px rgba(23,72,59,.16); }
+.group-checkout.meetup { background:#d9f06a; color:#17483b; box-shadow:none; }
+.group-checkout span { font-size:9px; font-weight:750; opacity:.8; }
+.group-checkout strong { font-size:12px; line-height:1.25; }
+.group-checkout b { margin-left:4px; }
 button:focus-visible,a:focus-visible,input:focus-visible { outline:3px solid #d9f06a; outline-offset:3px; }
 @keyframes spin { to { transform:rotate(360deg); } }
 @media (max-width:520px) {
