@@ -65,7 +65,7 @@ class ProductCreate(BaseModel):
     height_cm: Optional[float] = None
     shipping_category: str = "standard"
     origin_country_code: Optional[str] = None
-    transaction_mode: Literal["online", "in_person"] = "online"
+    transaction_mode: Literal["online", "in_person"]
     pickup_enabled: bool = False
     pickup_contact: Optional[str] = None
     pickup_payment: Optional[str] = None

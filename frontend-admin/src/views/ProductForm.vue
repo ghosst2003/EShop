@@ -99,12 +99,12 @@
       <!-- 交易方式 -->
       <el-card class="form-card">
         <template #header>
-          <span>交易方式</span>
+          <span>交易方式（必须二选一）</span>
           <el-tooltip content="每件商品只能选择一种交易方式，避免买家重复付款或误选配送" placement="top">
             <el-icon style="margin-left: 6px; cursor: help"><QuestionFilled /></el-icon>
           </el-tooltip>
         </template>
-        <el-radio-group v-model="form.transaction_mode" class="transaction-options">
+        <el-radio-group v-model="form.transaction_mode" class="transaction-options" aria-label="商品交易方式，必须二选一">
           <el-radio value="online" border>
             <strong>在线支付</strong><small>配送商品，买家通过 Stripe 安全付款</small>
           </el-radio>
@@ -119,7 +119,7 @@
           :closable="false"
           show-icon
         />
-        <template v-else>
+        <template v-else-if="form.transaction_mode === 'in_person'">
           <el-form-item label="所在国家" required>
             <el-select v-model="form.origin_country_code" placeholder="选择见面交易所在国家" filterable style="width: 100%">
               <el-option
@@ -481,7 +481,7 @@ const form = reactive({
   height_cm: null,
   shipping_category: 'standard',
   origin_country_code: null,
-  transaction_mode: 'online',
+  transaction_mode: null,
   pickup_enabled: false,
   pickup_location: '',
   pickup_schedule: '',
@@ -679,6 +679,10 @@ async function ensureCountryExists(code) {
 const handleSave = async () => {
   if (!form.title || !form.title_en || !form.category_id || !form.sale_price) {
     ElMessage.warning('请填写必填字段')
+    return
+  }
+  if (!['online', 'in_person'].includes(form.transaction_mode)) {
+    ElMessage.warning('请选择一种交易方式：在线支付或当面交易')
     return
   }
   if (form.transaction_mode === 'in_person' && (!form.origin_country_code || !form.pickup_location.trim() || !form.pickup_contact.trim() || !form.pickup_payment.trim())) {
