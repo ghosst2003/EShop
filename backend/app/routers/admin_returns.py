@@ -1,5 +1,4 @@
 """Admin return review and Stripe refund workflow."""
-import os
 from datetime import datetime
 
 import stripe
@@ -8,6 +7,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
+from app.config import settings
 from app.dependencies import get_current_admin
 from app.models import Order, OrderReservation, OrderStatusLog, ReturnRequest, User
 from app.schemas import AdminReturnOut, AdminReturnStatusUpdate
@@ -16,7 +16,7 @@ from app.services.orders import restore_order_stock
 
 
 router = APIRouter()
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+stripe.api_key = settings.stripe_secret_key
 
 
 def serialize_return(request: ReturnRequest, order: Order) -> dict:

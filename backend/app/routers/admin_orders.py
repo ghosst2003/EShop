@@ -1,5 +1,4 @@
 """订单管理 - 后台 API"""
-import os
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -12,6 +11,7 @@ import stripe
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
+from app.config import settings
 from app.models import Order, OrderItem, OrderStatusLog, User, Product, OrderReservation, OrderShipment
 from app.schemas import (
     OrderCreate, OrderUpdate, OrderStatusUpdate,
@@ -21,7 +21,7 @@ from app.dependencies import get_current_admin
 from app.services.email import send_order_notification
 from app.services.orders import capture_reservation, release_reservation, restore_order_stock
 
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+stripe.api_key = settings.stripe_secret_key
 
 router = APIRouter()
 

@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 480
     environment: str = "development"
     frontend_url: str = "http://localhost:5175"
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""

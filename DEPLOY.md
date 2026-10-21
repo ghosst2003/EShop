@@ -263,6 +263,9 @@ sudo certbot renew --dry-run
 
 ## 6. Stripe 后续接入
 
+完整的测试密钥、本地 Stripe CLI、测试卡和验收流程见
+[`STRIPE_TESTING.md`](./STRIPE_TESTING.md)。
+
 Webhook 地址：
 
 ```text
