@@ -1,11 +1,9 @@
 from datetime import datetime, timedelta
 
-from passlib.context import CryptContext
+import bcrypt
 from jose import jwt
 
 from app.config import settings
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 MAX_BCRYPT_PASSWORD_BYTES = 72
 
@@ -18,11 +16,16 @@ def password_exceeds_bcrypt_limit(password: str) -> bool:
 def hash_password(password: str) -> str:
     if password_exceeds_bcrypt_limit(password):
         raise ValueError("Password must not exceed 72 UTF-8 bytes")
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    if password_exceeds_bcrypt_limit(plain):
+        return False
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    except (TypeError, ValueError):
+        return False
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
