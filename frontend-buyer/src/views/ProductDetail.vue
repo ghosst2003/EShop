@@ -2,7 +2,7 @@
   <div v-if="product">
     <Navbar />
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 pb-24">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 pb-24 lg:pb-10">
       <!-- Breadcrumb -->
       <nav class="text-sm text-gray-400 mb-6">
         <router-link to="/" class="hover:text-primary transition">Home</router-link>
@@ -63,6 +63,16 @@
             <span v-else class="text-red-600 font-medium">❌ Out of stock</span>
           </div>
 
+          <!-- Desktop purchase actions belong to the product information flow. -->
+          <div class="hidden lg:block mb-5">
+            <CtaButtons
+              :disabled="product.stock_quantity === 0"
+              :transaction-mode="product.transaction_mode"
+              @add-to-cart="handleAddToCart"
+              @buy-now="handleBuyNow"
+            />
+          </div>
+
           <!-- Shipping Info -->
           <div class="lg:-ml-4">
             <ShippingInfo
@@ -80,9 +90,6 @@
               :country-pickup-enabled="countryPickupEnabled"
             />
           </div>
-
-          <!-- CTA Buttons (moved to fixed bottom bar) -->
-          <div class="h-14"></div>
 
         </div>
       </div>
@@ -109,19 +116,15 @@
       />
     </div>
 
-    <!-- Fixed Bottom Action Bar -->
-    <div class="fixed bottom-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 pb-2 safe-bottom">
-      <div class="max-w-7xl mx-auto">
-        <div class="grid grid-cols-2">
-          <div class="col-start-2">
-            <CtaButtons
-              :disabled="product.stock_quantity === 0"
-              :transaction-mode="product.transaction_mode"
-              @add-to-cart="handleAddToCart"
-              @buy-now="handleBuyNow"
-            />
-          </div>
-        </div>
+    <!-- Mobile purchase actions stay within thumb reach. -->
+    <div class="fixed bottom-0 left-0 right-0 z-50 px-4 sm:px-6 pb-2 safe-bottom lg:hidden">
+      <div class="max-w-2xl mx-auto">
+        <CtaButtons
+          :disabled="product.stock_quantity === 0"
+          :transaction-mode="product.transaction_mode"
+          @add-to-cart="handleAddToCart"
+          @buy-now="handleBuyNow"
+        />
       </div>
     </div>
 
