@@ -7,8 +7,17 @@ from app.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+MAX_BCRYPT_PASSWORD_BYTES = 72
+
+
+def password_exceeds_bcrypt_limit(password: str) -> bool:
+    """Bcrypt only accepts the first 72 UTF-8 bytes of a password."""
+    return len(password.encode("utf-8")) > MAX_BCRYPT_PASSWORD_BYTES
+
 
 def hash_password(password: str) -> str:
+    if password_exceeds_bcrypt_limit(password):
+        raise ValueError("Password must not exceed 72 UTF-8 bytes")
     return pwd_context.hash(password)
 
 

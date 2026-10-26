@@ -9,7 +9,13 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.auth import hash_password, verify_password, create_access_token, settings
+from app.auth import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    password_exceeds_bcrypt_limit,
+    settings,
+)
 from app.schemas import (
     LoginRequest, UserRegister, UserProfileUpdate, UserOut, TokenResponse,
     PasswordResetRequest, PasswordResetConfirm,
@@ -21,6 +27,13 @@ from app.models import User, PasswordResetToken, EmailVerificationToken
 from app.schemas import UserRegister, UserProfileUpdate, UserOut, TokenResponse
 
 router = APIRouter()
+
+
+def _validate_new_password(password: str) -> None:
+    if password_exceeds_bcrypt_limit(password):
+        raise HTTPException(status_code=400, detail="Password must not exceed 72 UTF-8 bytes")
+    if len(password) < 8 or not any(char.isalpha() for char in password) or not any(char.isdigit() for char in password):
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters and include a letter and a number")
 
 
 def _generate_buyer_username(db: Session) -> str:
@@ -70,8 +83,7 @@ def _send_email_verification(recipient: str, raw_token: str):
 @router.post("/register", response_model=TokenResponse, status_code=201)
 def register(req: UserRegister, db: Session = Depends(get_db)):
     """买家注册 — 注册成功自动登录"""
-    if len(req.password) < 8 or not any(char.isalpha() for char in req.password) or not any(char.isdigit() for char in req.password):
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters and include a letter and a number")
+    _validate_new_password(req.password)
     email = (req.email or "").strip().lower()
     display_name = (req.display_name or "").strip()
     requested_username = (req.username or "").strip()
@@ -246,8 +258,7 @@ def request_password_reset(data: PasswordResetRequest, db: Session = Depends(get
 
 @router.post("/password-reset/confirm")
 def confirm_password_reset(data: PasswordResetConfirm, db: Session = Depends(get_db)):
-    if len(data.new_password) < 8 or not any(char.isalpha() for char in data.new_password) or not any(char.isdigit() for char in data.new_password):
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters and include a letter and a number")
+    _validate_new_password(data.new_password)
     token_hash = hashlib.sha256(data.token.encode("utf-8")).hexdigest()
     token = db.query(PasswordResetToken).filter(
         PasswordResetToken.token_hash == token_hash,

@@ -15,12 +15,12 @@
         <input id="register-phone" v-model.trim="form.phone" type="tel" autocomplete="tel" placeholder="+357…" />
         <label for="register-password">Password</label>
         <div class="password-field">
-          <input id="register-password" v-model="form.password" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" minlength="8" required placeholder="At least 8 characters" />
+          <input id="register-password" v-model="form.password" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" minlength="8" maxlength="72" required placeholder="8–72 characters" />
           <button type="button" :aria-label="showPassword ? 'Hide passwords' : 'Show passwords'" @click="showPassword = !showPassword">{{ showPassword ? 'Hide' : 'Show' }}</button>
         </div>
         <p class="password-hint" :class="{ ready: passwordReady }">{{ passwordHint }}</p>
         <label for="register-confirm">Confirm password</label>
-        <input id="register-confirm" v-model="form.confirm" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" minlength="8" required placeholder="Repeat your password" />
+        <input id="register-confirm" v-model="form.confirm" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" minlength="8" maxlength="72" required placeholder="Repeat your password" />
         <label class="terms-check">
           <input v-model="accepted" type="checkbox" required />
           <span>I agree to the <router-link to="/terms">terms</router-link> and <router-link to="/privacy">privacy policy</router-link>.</span>
@@ -42,10 +42,12 @@ const accepted = ref(false)
 const showPassword = ref(false)
 const loading = ref(false)
 const error = ref('')
-const passwordReady = computed(() => form.password.length >= 8 && /[A-Za-z]/.test(form.password) && /\d/.test(form.password))
-const passwordHint = computed(() => passwordReady.value ? 'Password looks ready.' : 'Use 8+ characters with at least one letter and one number.')
+const passwordBytes = computed(() => new TextEncoder().encode(form.password).length)
+const passwordReady = computed(() => form.password.length >= 8 && passwordBytes.value <= 72 && /[A-Za-z]/.test(form.password) && /\d/.test(form.password))
+const passwordHint = computed(() => passwordBytes.value > 72 ? 'Password is too long. Use no more than 72 UTF-8 bytes.' : passwordReady.value ? 'Password looks ready.' : 'Use at least 8 characters with one letter and one number.')
 const handleRegister = async () => {
   error.value = ''
+  if (passwordBytes.value > 72) { error.value = 'Password is too long. Use no more than 72 UTF-8 bytes.'; return }
   if (!passwordReady.value) { error.value = 'Choose a stronger password using a letter and a number.'; return }
   if (form.password !== form.confirm) { error.value = 'Passwords do not match.'; return }
   loading.value = true
