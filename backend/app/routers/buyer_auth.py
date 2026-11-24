@@ -93,24 +93,52 @@ def register(req: UserRegister, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Name is required")
     if settings.environment.lower() == "production" and (not settings.smtp_host or not settings.smtp_from_email):
         raise HTTPException(status_code=503, detail="Email verification is temporarily unavailable")
+    existing_user = db.query(User).filter(User.email == email).first()
+    if existing_user:
+        verification_tokens = db.query(EmailVerificationToken).filter(
+            EmailVerificationToken.user_id == existing_user.id,
+        ).all()
+        has_completed_verification = any(token.used_at is not None for token in verification_tokens)
+        has_live_verification = any(
+            token.used_at is None and token.expires_at > datetime.utcnow()
+            for token in verification_tokens
+        )
+        # Accounts with no verification record are legacy or administrator
+        # accounts and must never be replaced through public registration.
+        if has_completed_verification or has_live_verification or not verification_tokens:
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+        # Every verification attempt is unused and expired. Recycle the
+        # inaccessible buyer account so the mailbox owner can register again.
+        # Password-reset links must also be invalidated because the password is
+        # about to be replaced.
+        for verification_token in verification_tokens:
+            db.delete(verification_token)
+        db.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == existing_user.id,
+        ).delete(synchronize_session=False)
+        user = existing_user
+        username = requested_username or user.username
+    else:
+        user = User(role="buyer", email=email)
+        username = requested_username or _generate_buyer_username(db)
+        db.add(user)
+
     # Usernames remain available for existing clients, while the storefront now
     # creates an opaque internal username and asks buyers for only one name.
-    if requested_username and db.query(User).filter(User.username == requested_username).first():
+    username_query = db.query(User).filter(User.username == username)
+    if existing_user:
+        username_query = username_query.filter(User.id != existing_user.id)
+    if username_query.first():
         raise HTTPException(status_code=400, detail="Username already exists")
 
-    if db.query(User).filter(User.email == email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    username = requested_username or _generate_buyer_username(db)
-    user = User(
-        username=username,
-        password_hash=hash_password(req.password),
-        role="buyer",
-        display_name=display_name,
-        email=email,
-        phone=req.phone,
-    )
-    db.add(user)
+    user.username = username
+    user.password_hash = hash_password(req.password)
+    user.role = "buyer"
+    user.display_name = display_name
+    user.email = email
+    user.phone = req.phone
+    user.is_active = 1
     db.commit()
     db.refresh(user)
 
